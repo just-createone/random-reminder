@@ -60,6 +60,19 @@ def init_database() -> None:
             )
             """
         )
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS daily_schedules (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                schedule_date TEXT NOT NULL,
+                scheduled_time TEXT NOT NULL,
+                reminder_id INTEGER,
+                content_snapshot TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'pending',
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(schedule_date, scheduled_time)
+            )
+            """)
 
         connection.commit()
 

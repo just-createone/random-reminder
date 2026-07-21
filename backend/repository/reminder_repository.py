@@ -74,20 +74,37 @@ class ReminderRepository:
         try:
             cursor = connection.cursor()
 
-            cursor.execute(
-                """
+            cursor.execute("""
                 SELECT id, content, enabled, created_at, updated_at
                 FROM reminders
                 ORDER BY id DESC
-                """
-            )
+                """)
 
             rows = cursor.fetchall()
 
-            return [
-                self._row_to_reminder(row)
-                for row in rows
-            ]
+            return [self._row_to_reminder(row) for row in rows]
+
+        finally:
+            connection.close()
+
+    def get_enabled(self) -> list[Reminder]:
+        """查询全部已启用的提醒。"""
+
+        connection = get_connection()
+
+        try:
+            cursor = connection.cursor()
+
+            cursor.execute("""
+                SELECT id, content, enabled, created_at, updated_at
+                FROM reminders
+                WHERE enabled = 1
+                ORDER BY id DESC
+                """)
+
+            rows = cursor.fetchall()
+
+            return [self._row_to_reminder(row) for row in rows]
 
         finally:
             connection.close()
