@@ -1,9 +1,30 @@
-import sqlite3
-from backend.config import get_db_path, logger
+from backend.config import logger
+from backend.database.db import get_connection
 
-def init_db():
-    db_path = get_db_path()
-    conn = sqlite3.connect(db_path)
-    conn.close()
-    logger.info(f"Database initialized at {db_path}")
-    return db_path
+
+def init_database() -> None:
+    """初始化项目所需的数据表。"""
+
+    connection = get_connection()
+
+    try:
+        cursor = connection.cursor()
+
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS reminders (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                content TEXT NOT NULL,
+                enabled INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+
+        connection.commit()
+
+        logger.info("Database initialized successfully")
+
+    finally:
+        connection.close()
