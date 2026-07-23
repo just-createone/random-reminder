@@ -9,6 +9,8 @@ from backend.api.schedules import router as schedules_router
 from backend.api.notifications import (
     router as notifications_router,
 )
+from backend.api.executor import router as executor_router
+from backend.executor.runtime import schedule_executor
 from backend.config import PROJECT_NAME, VERSION, logger
 from backend.database.init_db import init_database
 
@@ -22,9 +24,13 @@ async def lifespan(
     """管理应用启动和关闭时的操作。"""
 
     init_database()
+    schedule_executor.start()
+
     logger.info("Server started")
 
     yield
+
+    await schedule_executor.stop()
 
     logger.info("Server stopped")
 
@@ -62,3 +68,4 @@ app.include_router(reminders_router)
 app.include_router(settings_router)
 app.include_router(schedules_router)
 app.include_router(notifications_router)
+app.include_router(executor_router)

@@ -110,6 +110,41 @@ class DailyScheduleRepository:
 
         return self.get_by_date(schedule_date)
 
+
+    def update_status(
+            
+            self,
+            schedule_id: int,
+            status: str,
+        ) -> bool:
+            """修改一条提醒计划的执行状态。"""
+
+            connection = get_connection()
+
+            try:
+                cursor = connection.cursor()
+
+                cursor.execute(
+                    """
+                    UPDATE daily_schedules
+                    SET status = ?
+                    WHERE id = ?
+                    """,
+                    (  
+                        status,
+                        schedule_id,
+                    ),
+                )
+
+                updated_count = cursor.rowcount
+
+                connection.commit()
+
+                return updated_count > 0
+
+            finally:
+                connection.close()
+                
     @staticmethod
     def _row_to_schedule(
         row: sqlite3.Row,
