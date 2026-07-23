@@ -6,6 +6,9 @@ from fastapi import FastAPI
 from backend.api.reminders import router as reminders_router
 from backend.api.settings import router as settings_router
 from backend.api.schedules import router as schedules_router
+from backend.api.notifications import (
+    router as notifications_router,
+)
 from backend.config import PROJECT_NAME, VERSION, logger
 from backend.database.init_db import init_database
 
@@ -58,3 +61,4 @@ def health_check() -> dict[str, str]:
 app.include_router(reminders_router)
 app.include_router(settings_router)
 app.include_router(schedules_router)
+app.include_router(notifications_router)
