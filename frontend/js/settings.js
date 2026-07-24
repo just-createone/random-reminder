@@ -161,7 +161,7 @@ async function saveSettings(){
         );
 
 
-        alert(
+        showMessage(
             "设置保存成功"
         );
 
@@ -170,9 +170,10 @@ async function saveSettings(){
     }catch(error){
 
 
-        alert(
-            error.message
-        );
+        showMessage(
+    error.message,
+    "error"
+);
 
     }
 

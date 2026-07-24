@@ -427,3 +427,68 @@ button:hover {
         font-size: 36px;
     }
 }
+
+.global-message {
+
+    position: fixed;
+
+    top: 20px;
+
+    left: 50%;
+
+    transform:
+    translateX(-50%)
+    translateY(-20px);
+
+    padding:14px 24px;
+
+    border-radius:10px;
+
+    background:white;
+
+    font-size:16px;
+
+    font-weight:600;
+
+    opacity:0 !important;
+
+    pointer-events:none;
+
+    transition:
+    all 0.25s ease;
+
+    box-shadow:
+    0 8px 30px
+    rgba(0,0,0,0.15);
+
+    z-index:99999;
+
+}
+
+
+
+.global-message.show {
+
+    opacity:1 !important; 
+
+    transform:
+    translateX(-50%)
+    translateY(0) !important;
+
+}
+
+
+
+.global-message.success {
+
+    color:#18794e;
+
+}
+
+
+
+.global-message.error {
+
+    color:#b42318;
+
+}
