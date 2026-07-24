@@ -192,3 +192,53 @@ textarea {
 
 
 }
+
+.setting-item {
+
+    margin-bottom:15px;
+
+}
+
+
+
+input[type="number"],
+input[type="time"] {
+
+    padding:8px;
+
+    border:
+
+    1px solid #ddd;
+
+    border-radius:6px;
+
+    margin-left:8px;
+
+}
+
+
+
+input[type="checkbox"],
+input[type="radio"] {
+
+    margin-right:6px;
+
+}
+
+
+
+button {
+
+    background:#222;
+
+    color:white;
+
+}
+
+
+
+button:hover {
+
+    opacity:0.85;
+
+}
