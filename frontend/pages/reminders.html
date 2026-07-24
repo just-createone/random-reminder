@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta
+name="viewport"
+content="width=device-width, initial-scale=1.0"
+>
+
+<title>
+提醒管理
+</title>
+
+
+<link
+rel="stylesheet"
+href="/css/style.css"
+>
+
+</head>
+
+
+<body>
+
+
+<main class="container">
+
+
+<h1>
+提醒管理
+</h1>
+
+
+
+<section class="card">
+
+
+<h2>
+新增提醒
+</h2>
+
+
+<div class="form-group">
+
+
+<textarea
+id="reminderContent"
+placeholder="输入你的提醒内容..."
+rows="4"
+></textarea>
+
+
+</div>
+
+
+
+<button
+onclick="createReminder()"
+>
+添加提醒
+</button>
+
+
+
+</section>
+
+
+
+
+<section class="card">
+
+
+<h2>
+我的提醒
+</h2>
+
+
+<div id="reminderList">
+
+加载中...
+
+</div>
+
+
+</section>
+
+
+
+
+<section class="card">
+
+<a href="/">
+返回首页
+
+</a>
+
+</section>
+
+
+
+</main>
+
+
+
+
+<script src="/js/api.js"></script>
+
+<script src="/js/reminders.js"></script>
+
+
+</body>
+
+</html>

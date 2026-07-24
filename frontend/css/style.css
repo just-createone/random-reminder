@@ -111,3 +111,84 @@ button {
         grid-column: 2;
     }
 }
+
+textarea {
+
+    width:100%;
+
+    padding:12px;
+
+    border-radius:8px;
+
+    border:1px solid #ddd;
+
+    resize:vertical;
+
+}
+
+
+
+.form-group {
+
+    margin-bottom:15px;
+
+}
+
+
+
+.reminder-item {
+
+
+    display:flex;
+
+    justify-content:space-between;
+
+    align-items:center;
+
+    gap:20px;
+
+    padding:15px 0;
+
+    border-bottom:
+    1px solid #eee;
+
+}
+
+
+
+.reminder-content {
+
+    flex:1;
+
+    word-break:break-word;
+
+}
+
+
+
+.reminder-actions {
+
+
+    display:flex;
+
+    align-items:center;
+
+    gap:10px;
+
+}
+
+
+
+@media(max-width:480px){
+
+
+.reminder-item{
+
+    flex-direction:column;
+
+    align-items:flex-start;
+
+}
+
+
+}
