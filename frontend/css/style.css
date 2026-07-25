@@ -492,3 +492,93 @@ button:hover {
     color:#b42318;
 
 }
+
+.modal {
+
+    position:fixed;
+
+    inset:0;
+
+    display:none;
+
+    z-index:10000;
+
+}
+
+
+.modal.show {
+
+    display:block;
+
+}
+
+
+
+.modal-mask {
+
+    position:absolute;
+
+    inset:0;
+
+    background:
+    rgba(0,0,0,0.35);
+
+}
+
+
+
+.modal-box {
+
+    position:absolute;
+
+    top:50%;
+
+    left:50%;
+
+
+    transform:
+    translate(-50%,-50%);
+
+
+    width:90%;
+
+    max-width:400px;
+
+
+    padding:24px;
+
+
+    background:white;
+
+    border-radius:14px;
+
+
+    box-shadow:
+    0 10px 40px
+    rgba(0,0,0,0.15);
+
+}
+
+
+
+.modal-actions {
+
+    display:flex;
+
+    justify-content:flex-end;
+
+    gap:12px;
+
+    margin-top:20px;
+
+}
+
+
+
+.danger-button {
+
+    background:#b42318;
+
+    color:white;
+
+}

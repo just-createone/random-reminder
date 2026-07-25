@@ -68,7 +68,9 @@ async function createReminder() {
  * 删除提醒
  */
 async function deleteReminder(id) {
-  const confirmed = confirm("确定删除这个提醒吗？");
+  const confirmed = await showConfirmModal(
+        "确定删除这个提醒吗？"
+    );
 
   if (!confirmed) {
     return;
