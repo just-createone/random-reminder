@@ -3,7 +3,6 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
-from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from backend.api.executor import router as executor_router
@@ -13,32 +12,62 @@ from backend.api.notifications import (
 from backend.api.reminders import router as reminders_router
 from backend.api.schedules import router as schedules_router
 from backend.api.settings import router as settings_router
-from backend.config import PROJECT_NAME, VERSION, logger
+
+from backend.config import (
+    PROJECT_NAME,
+    VERSION,
+    logger,
+)
+
 from backend.database.init_db import init_database
 from backend.executor.runtime import schedule_executor
 
 
+# ===============================
+# 路径配置
+# ===============================
+
 BASE_DIR = Path(__file__).resolve().parent.parent
+
 FRONTEND_DIR = BASE_DIR / "frontend"
 
+
+
+# ===============================
+# 生命周期管理
+# ===============================
 
 @asynccontextmanager
 async def lifespan(
     _app: FastAPI,
 ) -> AsyncIterator[None]:
-    """管理应用启动和关闭时的操作。"""
+    """
+    管理应用启动和关闭。
+    """
 
     init_database()
+
     schedule_executor.start()
 
-    logger.info("Server started")
+    logger.info(
+        "Server started"
+    )
+
 
     yield
 
+
     await schedule_executor.stop()
 
-    logger.info("Server stopped")
+    logger.info(
+        "Server stopped"
+    )
 
+
+
+# ===============================
+# 创建 FastAPI
+# ===============================
 
 app = FastAPI(
     title=PROJECT_NAME,
@@ -47,6 +76,13 @@ app = FastAPI(
 )
 
 
+
+# ===============================
+# 静态资源
+# ===============================
+
+
+# CSS
 app.mount(
     "/css",
     StaticFiles(
@@ -55,6 +91,9 @@ app.mount(
     name="css",
 )
 
+
+
+# JavaScript
 app.mount(
     "/js",
     StaticFiles(
@@ -63,6 +102,9 @@ app.mount(
     name="js",
 )
 
+
+
+# 图片等资源
 app.mount(
     "/assets",
     StaticFiles(
@@ -71,6 +113,9 @@ app.mount(
     name="assets",
 )
 
+
+
+# 子页面
 app.mount(
     "/pages",
     StaticFiles(
@@ -81,23 +126,25 @@ app.mount(
 )
 
 
-@app.get(
-    "/",
-    response_class=FileResponse,
-)
-def frontend_home() -> FileResponse:
-    """返回随机提醒器前端首页。"""
 
-    return FileResponse(
-        FRONTEND_DIR / "index.html"
-    )
+
+
+
+
+# ===============================
+# 健康检查
+# ===============================
 
 
 @app.get("/health")
 def health_check() -> dict[str, str]:
-    """检查后端服务是否正常。"""
+    """
+    检查后端服务是否正常。
+    """
 
-    logger.info("Health check requested")
+    logger.info(
+        "Health check requested"
+    )
 
     return {
         "status": "ok",
@@ -106,8 +153,39 @@ def health_check() -> dict[str, str]:
     }
 
 
-app.include_router(reminders_router)
-app.include_router(settings_router)
-app.include_router(schedules_router)
-app.include_router(notifications_router)
-app.include_router(executor_router)
+
+
+# ===============================
+# API 路由
+# ===============================
+
+
+app.include_router(
+    reminders_router
+)
+
+app.include_router(
+    settings_router
+)
+
+app.include_router(
+    schedules_router
+)
+
+app.include_router(
+    notifications_router
+)
+
+app.include_router(
+    executor_router
+)
+
+# PWA 文件
+app.mount(
+    "/",
+    StaticFiles(
+        directory=FRONTEND_DIR,
+        html=True,
+    ),
+    name="frontend",
+)

@@ -1,139 +1,104 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
+  <head>
+    <meta charset="UTF-8" />
 
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
     <title>随机提醒器</title>
 
-    <link
-        rel="stylesheet"
-        href="/css/style.css"
-    >
-</head>
+    <link rel="stylesheet" href="/css/style.css" />
+    <link rel="manifest" href="/manifest.json" />
 
-<body>
+    <meta name="theme-color" content="#ffffff" />
+  </head>
+
+  <body>
     <main class="container">
-        <header class="page-header">
-            <div>
-                <p class="eyebrow">Random Reminder</p>
-                <h1>随机提醒器</h1>
-                <p class="page-description">
-                    让重要的内容在随机时刻重新进入你的注意力。
-                </p>
-            </div>
+      <header class="page-header">
+        <div>
+          <p class="eyebrow">Random Reminder</p>
+          <h1>随机提醒器</h1>
+          <p class="page-description">
+            让重要的内容在随机时刻重新进入你的注意力。
+          </p>
+        </div>
 
-            <a
-                class="secondary-button"
-                href="/pages/settings.html"
-            >
-                设置
-            </a>
-        </header>
+        <a class="secondary-button" href="/pages/settings.html"> 设置 </a>
+      </header>
 
-        <section class="dashboard-grid">
-            <article class="card status-card">
-                <div class="card-heading">
-                    <h2>运行状态</h2>
+      <section class="dashboard-grid">
+        <article class="card status-card">
+          <div class="card-heading">
+            <h2>运行状态</h2>
 
-                    <span
-                        id="reminderStatusBadge"
-                        class="status-badge"
-                    >
-                        加载中
-                    </span>
-                </div>
+            <span id="reminderStatusBadge" class="status-badge"> 加载中 </span>
+          </div>
 
-                <p
-                    id="reminderStatusDescription"
-                    class="muted-text"
-                >
-                    正在读取提醒设置……
-                </p>
-            </article>
+          <p id="reminderStatusDescription" class="muted-text">
+            正在读取提醒设置……
+          </p>
+        </article>
 
-            <article class="card next-reminder-card">
-                <p class="card-label">下一次提醒</p>
+        <article class="card next-reminder-card">
+          <p class="card-label">下一次提醒</p>
 
-                <p
-                    id="nextReminderTime"
-                    class="next-reminder-time"
-                >
-                    --:--
-                </p>
+          <p id="nextReminderTime" class="next-reminder-time">--:--</p>
 
-                <p
-                    id="nextReminderCountdown"
-                    class="next-reminder-countdown"
-                >
-                    正在计算……
-                </p>
+          <p id="nextReminderCountdown" class="next-reminder-countdown">
+            正在计算……
+          </p>
 
-                <p
-                    id="nextReminderContent"
-                    class="next-reminder-content"
-                >
-                </p>
-            </article>
-        </section>
+          <p id="nextReminderContent" class="next-reminder-content"></p>
+        </article>
+      </section>
 
-        <section class="card">
-            <div class="card-heading">
-                <div>
-                    <h2>今日计划</h2>
+      <section class="card">
+        <div class="card-heading">
+          <div>
+            <h2>今日计划</h2>
 
-                    <p
-                        id="scheduleSummary"
-                        class="muted-text"
-                    >
-                        正在加载今日计划……
-                    </p>
-                </div>
+            <p id="scheduleSummary" class="muted-text">正在加载今日计划……</p>
+          </div>
 
-                <button
-                    id="regenerateButton"
-                    class="secondary-button"
-                    type="button"
-                    onclick="regenerateTodaySchedule()"
-                >
-                    重新生成
-                </button>
-            </div>
+          <button
+            id="regenerateButton"
+            class="secondary-button"
+            type="button"
+            onclick="regenerateTodaySchedule()"
+          >
+            重新生成
+          </button>
+        </div>
 
-            <div id="todaySchedule">
-                正在加载今日计划……
-            </div>
-        </section>
+        <div id="todaySchedule">正在加载今日计划……</div>
+      </section>
 
-        <section class="card">
-            <h2>内容管理</h2>
+      <section class="card">
+        <h2>内容管理</h2>
 
-            <div class="quick-actions">
-                <a
-                    class="action-link"
-                    href="/pages/reminders.html"
-                >
-                    <strong>管理提醒内容</strong>
-                    <span>新增、停用或删除提醒</span>
-                </a>
+        <div class="quick-actions">
+          <a class="action-link" href="/pages/reminders.html">
+            <strong>管理提醒内容</strong>
+            <span>新增、停用或删除提醒</span>
+          </a>
 
-                <a
-                    class="action-link"
-                    href="/pages/settings.html"
-                >
-                    <strong>调整提醒设置</strong>
-                    <span>修改时间范围、次数和间隔</span>
-                </a>
-            </div>
-        </section>
+          <a class="action-link" href="/pages/settings.html">
+            <strong>调整提醒设置</strong>
+            <span>修改时间范围、次数和间隔</span>
+          </a>
+        </div>
+      </section>
     </main>
 
     <script src="/js/api.js"></script>
     <script src="/js/ui.js"></script>
+    <script src="/js/modal.js"></script>
     <script src="/js/dashboard.js"></script>
-</body>
+    <script>
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("/service-worker.js");
+      }
+    </script>
+  </body>
 </html>

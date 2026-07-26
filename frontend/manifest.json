@@ -1,0 +1,24 @@
+{
+    "id": "/",
+    "name": "随机提醒器",
+    "short_name": "提醒器",
+    "description": "让重要内容在随机时间重新进入你的注意力。",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#ffffff",
+    "lang": "zh-CN",
+
+    "icons": [
+        {
+            "src": "/assets/icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "/assets/icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        }
+    ]
+}

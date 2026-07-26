@@ -357,7 +357,7 @@ function startCountdownTimer() {
         async () => {
             await loadTodaySchedule();
         },
-        30000
+        60000
     );
 }
 
