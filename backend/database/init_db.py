@@ -66,24 +66,21 @@ def init_database() -> None:
                 UNIQUE(schedule_date, scheduled_time)
             )
             """)
-        cursor.execute("""
+        cursor.execute(
+    """
     CREATE TABLE IF NOT EXISTS notifications (
-
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-
-        schedule_id INTEGER NOT NULL,
-
-        status TEXT NOT NULL DEFAULT 'pending',
-
+        schedule_id INTEGER NOT NULL UNIQUE,
+        status TEXT NOT NULL DEFAULT 'pending'
+            CHECK (status IN ('pending', 'sent', 'failed')),
         sent_at TEXT,
-
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-
-        FOREIGN KEY(schedule_id)
-        REFERENCES schedules(id)
-
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (schedule_id)
+            REFERENCES daily_schedules(id)
+            ON DELETE CASCADE
     )
-    """)
+    """
+)
 
         connection.commit()
 

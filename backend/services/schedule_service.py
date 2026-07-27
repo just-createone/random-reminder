@@ -6,6 +6,9 @@ from backend.domain.reminder import Reminder
 from backend.repository.daily_schedule_repository import (
     DailyScheduleRepository,
 )
+from backend.repository.notification_repository import (
+    NotificationRepository,
+)
 from backend.repository.reminder_repository import (
     ReminderRepository,
 )
@@ -25,20 +28,29 @@ class ScheduleService:
         schedule_repository: DailyScheduleRepository | None = None,
         reminder_repository: ReminderRepository | None = None,
         settings_repository: SettingsRepository | None = None,
+        notification_repository: NotificationRepository | None = None,
         strategy: RandomScheduleStrategy | None = None,
     ) -> None:
         self.schedule_repository = (
             schedule_repository
             or DailyScheduleRepository()
         )
+
         self.reminder_repository = (
             reminder_repository
             or ReminderRepository()
         )
+
         self.settings_repository = (
             settings_repository
             or SettingsRepository()
         )
+
+        self.notification_repository = (
+            notification_repository
+            or NotificationRepository()
+        )
+
         self.strategy = (
             strategy
             or RandomScheduleStrategy()
@@ -70,6 +82,10 @@ class ScheduleService:
         )
 
         if existing_schedule and not force:
+            self._ensure_notification_records(
+                existing_schedule
+            )
+
             return existing_schedule
 
         settings = self.settings_repository.get()
@@ -127,9 +143,32 @@ class ScheduleService:
             )
         ]
 
-        return self.schedule_repository.create_many(
-            schedule_date=today,
-            items=items,
+        schedules = (
+            self.schedule_repository.create_many(
+                schedule_date=today,
+                items=items,
+            )
+        )
+
+        self._ensure_notification_records(
+            schedules
+        )
+
+        return schedules
+
+    def _ensure_notification_records(
+        self,
+        schedules: list[DailySchedule],
+    ) -> None:
+        """确保每条计划都有对应的通知记录。"""
+
+        schedule_ids = [
+            schedule.id
+            for schedule in schedules
+        ]
+
+        self.notification_repository.create_many_for_schedules(
+            schedule_ids
         )
 
     @staticmethod
