@@ -10,8 +10,7 @@ def init_database() -> None:
     try:
         cursor = connection.cursor()
 
-        cursor.execute(
-            """
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS reminders (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 content TEXT NOT NULL,
@@ -19,11 +18,9 @@ def init_database() -> None:
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             )
-            """
-        )
+            """)
 
-        cursor.execute(
-            """
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS settings (
                 id INTEGER PRIMARY KEY CHECK (id = 1),
                 enabled INTEGER NOT NULL DEFAULT 0,
@@ -35,11 +32,9 @@ def init_database() -> None:
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             )
-            """
-        )
+            """)
 
-        cursor.execute(
-            """
+        cursor.execute("""
             INSERT OR IGNORE INTO settings (
                 id,
                 enabled,
@@ -58,10 +53,8 @@ def init_database() -> None:
                 3,
                 60
             )
-            """
-        )
-        cursor.execute(
-            """
+            """)
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS daily_schedules (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 schedule_date TEXT NOT NULL,
@@ -73,6 +66,24 @@ def init_database() -> None:
                 UNIQUE(schedule_date, scheduled_time)
             )
             """)
+        cursor.execute("""
+    CREATE TABLE IF NOT EXISTS notifications (
+
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+        schedule_id INTEGER NOT NULL,
+
+        status TEXT NOT NULL DEFAULT 'pending',
+
+        sent_at TEXT,
+
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+
+        FOREIGN KEY(schedule_id)
+        REFERENCES schedules(id)
+
+    )
+    """)
 
         connection.commit()
 
