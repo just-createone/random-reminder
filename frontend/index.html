@@ -75,6 +75,30 @@
       </section>
 
       <section class="card">
+        <div class="card-heading">
+          <div>
+            <h2>最近通知</h2>
+
+            <p id="notificationHistorySummary" class="muted-text">
+              正在加载通知记录……
+            </p>
+          </div>
+
+          <button
+            class="secondary-button"
+            type="button"
+            onclick="loadNotificationHistory()"
+          >
+            刷新
+          </button>
+        </div>
+
+        <div id="notificationHistory" class="notification-history-list">
+          正在加载通知记录……
+        </div>
+      </section>
+
+      <section class="card">
         <h2>内容管理</h2>
 
         <div class="quick-actions">

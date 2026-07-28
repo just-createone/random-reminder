@@ -9,6 +9,7 @@ async function initializeDashboard() {
     await Promise.all([
         loadReminderStatus(),
         loadTodaySchedule(),
+        loadNotificationHistory(),
     ]);
 
     startCountdownTimer();
@@ -160,12 +161,16 @@ function updateScheduleSummary() {
     const skippedCount = currentSchedules.filter(
         schedule => schedule.status === "skipped"
     ).length;
+    const failedCount = currentSchedules.filter(
+    schedule => schedule.status === "failed"
+).length;
 
     summary.textContent =
         `共 ${currentSchedules.length} 条，` +
         `${sentCount} 条已提醒，` +
         `${pendingCount} 条等待中，` +
-        `${skippedCount} 条已跳过。`;
+        `${skippedCount} 条已跳过。`+
+        `${failedCount} 条发送失败。`;
 }
 
 
@@ -180,7 +185,10 @@ async function generateTodaySchedule() {
             "/api/schedules/today/generate?force=false"
         );
 
-        await loadTodaySchedule();
+        await Promise.all([
+    loadTodaySchedule(),
+    loadNotificationHistory(),
+]);
 
     } catch (error) {
         alert(`生成失败：${error.message}`);
@@ -210,7 +218,10 @@ async function regenerateTodaySchedule() {
             "/api/schedules/today/generate?force=true"
         );
 
-        await loadTodaySchedule();
+        await Promise.all([
+    loadTodaySchedule(),
+    loadNotificationHistory(),
+]);
 
     } catch (error) {
         alert(`重新生成失败：${error.message}`);
@@ -355,7 +366,10 @@ function startCountdownTimer() {
 
     countdownTimer = setInterval(
         async () => {
-            await loadTodaySchedule();
+            await Promise.all([
+                loadTodaySchedule(),
+                loadNotificationHistory(),
+            ]);
         },
         60000
     );
@@ -397,6 +411,7 @@ function getStatusText(status) {
         pending: "等待提醒",
         sent: "已提醒",
         skipped: "已跳过",
+        failed: "发送失败",
     };
 
     return statusMap[status] || status;
@@ -416,5 +431,166 @@ function escapeHtml(value) {
     return element.innerHTML;
 }
 
+/**
+ * 加载最近的通知记录。
+ */
+async function loadNotificationHistory() {
+    const container = document.getElementById(
+        "notificationHistory"
+    );
 
+    const summary = document.getElementById(
+        "notificationHistorySummary"
+    );
+
+    if (!container || !summary) {
+        return;
+    }
+
+    try {
+        const items = await apiGet(
+            "/api/notifications/history?limit=10"
+        );
+
+        if (!Array.isArray(items)) {
+            throw new Error(
+                "通知历史返回格式不正确"
+            );
+        }
+
+        updateNotificationHistorySummary(
+            items
+        );
+
+        if (items.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <p>当前还没有通知记录。</p>
+                </div>
+            `;
+
+            return;
+        }
+
+        container.innerHTML = items
+            .map(createNotificationHistoryHtml)
+            .join("");
+
+    } catch (error) {
+        summary.textContent =
+            "通知记录读取失败";
+
+        container.innerHTML = `
+            <p class="error-message">
+                加载失败：${escapeHtml(error.message)}
+            </p>
+        `;
+    }
+}
+/**
+ * 更新通知历史摘要。
+ */
+function updateNotificationHistorySummary(
+    items
+) {
+    const summary = document.getElementById(
+        "notificationHistorySummary"
+    );
+
+    const sentCount = items.filter(
+        item =>
+            item.notification_status === "sent"
+    ).length;
+
+    const pendingCount = items.filter(
+        item =>
+            item.notification_status === "pending"
+    ).length;
+
+    const failedCount = items.filter(
+        item =>
+            item.notification_status === "failed"
+    ).length;
+
+    summary.textContent =
+        `最近 ${items.length} 条，` +
+        `${sentCount} 条已发送，` +
+        `${pendingCount} 条等待中，` +
+        `${failedCount} 条发送失败。`;
+}
+/**
+ * 把一条通知记录转换成 HTML。
+ */
+function createNotificationHistoryHtml(
+    item
+) {
+    const normalizedStatus =
+        normalizeNotificationStatus(
+            item.notification_status
+        );
+
+    return `
+        <div class="notification-history-item">
+            <div class="notification-history-time">
+                <strong>
+                    ${escapeHtml(item.scheduled_time)}
+                </strong>
+
+                <span>
+                    ${escapeHtml(item.schedule_date)}
+                </span>
+            </div>
+
+            <div class="notification-history-content">
+                ${escapeHtml(item.content)}
+            </div>
+
+            <span
+                class="
+                    notification-status
+                    notification-status-${normalizedStatus}
+                "
+            >
+                ${escapeHtml(
+                    getNotificationStatusText(
+                        item.notification_status
+                    )
+                )}
+            </span>
+        </div>
+    `;
+}
+
+/**
+ * 把未知状态转换为安全的 CSS 类名。
+ */
+function normalizeNotificationStatus(
+    status
+) {
+    const supportedStatuses = [
+        "pending",
+        "sent",
+        "failed",
+    ];
+
+    if (supportedStatuses.includes(status)) {
+        return status;
+    }
+
+    return "unknown";
+}
+/**
+ * 将通知状态转换为中文。
+ */
+function getNotificationStatusText(
+    status
+) {
+    const statusMap = {
+        pending: "等待发送",
+        sent: "已发送",
+        failed: "发送失败",
+    };
+
+    return statusMap[status] || "未知状态";
+}
 initializeDashboard();
