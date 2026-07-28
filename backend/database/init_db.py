@@ -81,6 +81,30 @@ def init_database() -> None:
     )
     """
 )
+        cursor.execute(
+    """
+    CREATE TABLE IF NOT EXISTS push_subscriptions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+        endpoint TEXT NOT NULL UNIQUE,
+
+        p256dh TEXT NOT NULL,
+
+        auth TEXT NOT NULL,
+
+        user_agent TEXT,
+
+        is_active INTEGER NOT NULL DEFAULT 1
+            CHECK (is_active IN (0, 1)),
+
+        created_at TEXT NOT NULL
+            DEFAULT CURRENT_TIMESTAMP,
+
+        updated_at TEXT NOT NULL
+            DEFAULT CURRENT_TIMESTAMP
+    )
+    """
+)
 
         connection.commit()
 
