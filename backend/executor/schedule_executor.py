@@ -1,5 +1,5 @@
 import threading
-from datetime import datetime
+from datetime import datetime,timedelta
 
 from backend.config import logger
 from backend.notification.windows_notifier import (
@@ -10,6 +10,9 @@ from backend.repository.notification_repository import (
 )
 from backend.services.web_push_service import (
     WebPushService,
+)
+from backend.services.schedule_service import (
+    ScheduleService,
 )
 
 
@@ -23,7 +26,9 @@ class ScheduleExecutor:
         ) = None,
         notifier: WindowsNotifier | None = None,
         web_push_service: WebPushService | None = None,
+        schedule_service: ScheduleService | None = None,
         check_interval_seconds: int = 30,
+        schedule_refresh_seconds: int = 300,
     ) -> None:
         self.notification_repository = (
             notification_repository
@@ -40,9 +45,22 @@ class ScheduleExecutor:
             or WebPushService()
         )
 
+        self.schedule_service = (
+    schedule_service
+    or ScheduleService()
+)
+
         self.check_interval_seconds = (
             check_interval_seconds
         )
+
+        self.schedule_refresh_interval = timedelta(
+    seconds=schedule_refresh_seconds,
+)
+
+        self._last_schedule_refresh_at: (
+            datetime | None
+        ) = None
 
         self._stop_event = threading.Event()
 
@@ -96,10 +114,91 @@ class ScheduleExecutor:
             "Schedule executor stopped"
         )
 
+    def ensure_today_schedule(
+    self,
+    now: datetime | None = None,
+    force_check: bool = False,
+) -> None:
+        """检查并自动创建今天的提醒计划。"""
+
+        current_time = now or datetime.now()
+
+        if (
+            not force_check
+            and not self._should_refresh_schedule(
+                current_time
+            )
+        ):
+            return
+
+        self._last_schedule_refresh_at = (
+            current_time
+        )
+
+        try:
+            existing_schedules = (
+                self.schedule_service
+                .get_today_schedule()
+            )
+
+            schedules = (
+                self.schedule_service
+                .generate_today_schedule(
+                    force=False,
+                )
+            )
+
+            if not existing_schedules:
+                logger.info(
+                    "Daily schedule generated "
+                    "automatically: "
+                    "date=%s, count=%s",
+                    current_time.date().isoformat(),
+                    len(schedules),
+                )
+
+        except ValueError as error:
+            logger.info(
+                "Daily schedule was not generated: %s",
+                error,
+            )
+
+        except Exception:
+            logger.exception(
+                "Automatic daily schedule check failed"
+            )
+
+    def _should_refresh_schedule(
+    self,
+    now: datetime,
+) -> bool:
+        """判断是否需要重新检查今日计划。"""
+
+        last_refresh = (
+            self._last_schedule_refresh_at
+        )
+
+        if last_refresh is None:
+            return True
+
+        if last_refresh.date() != now.date():
+            return True
+
+        elapsed = now - last_refresh
+
+        return (
+            elapsed
+            >= self.schedule_refresh_interval
+        )
+
     def run_once(self) -> None:
         """立即执行一次到期通知检查。"""
 
         now = datetime.now()
+
+        self.ensure_today_schedule(
+    now=now,
+)
 
         schedule_date = (
             now.date().isoformat()
