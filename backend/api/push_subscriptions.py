@@ -83,6 +83,12 @@ class PushSubscriptionDeleteResponse(
     message: str
 
 
+class VapidPublicKeyResponse(BaseModel):
+    """返回浏览器订阅需要的 VAPID 公钥。"""
+
+    public_key: str
+
+
 @router.post(
     "/subscriptions",
     response_model=PushSubscriptionResponse,
@@ -173,6 +179,32 @@ def delete_push_subscription(
         raise HTTPException(
             status_code=(
                 status.HTTP_400_BAD_REQUEST
+            ),
+            detail=str(error),
+        ) from error
+    
+@router.get(
+    "/vapid-public-key",
+    response_model=VapidPublicKeyResponse,
+)
+def get_vapid_public_key(
+) -> VapidPublicKeyResponse:
+    """读取浏览器订阅所需的公钥。"""
+
+    try:
+        public_key = (
+            push_subscription_service
+            .get_public_key()
+        )
+
+        return VapidPublicKeyResponse(
+            public_key=public_key,
+        )
+
+    except RuntimeError as error:
+        raise HTTPException(
+            status_code=(
+                status.HTTP_500_INTERNAL_SERVER_ERROR
             ),
             detail=str(error),
         ) from error

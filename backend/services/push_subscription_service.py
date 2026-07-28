@@ -4,6 +4,9 @@ from backend.domain.push_subscription import (
 from backend.repository.push_subscription_repository import (
     PushSubscriptionRepository,
 )
+from backend.config import (
+    get_vapid_public_key as load_vapid_public_key,
+)
 
 
 class PushSubscriptionService:
@@ -82,3 +85,8 @@ class PushSubscriptionService:
         return self.repository.deactivate(
             endpoint=cleaned_endpoint,
         )
+    
+    def get_public_key(self) -> str:
+        """返回浏览器订阅所需的 VAPID 公钥。"""
+
+        return load_vapid_public_key()

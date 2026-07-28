@@ -1,5 +1,5 @@
 const CACHE_NAME =
-    "random-reminder-v3";
+    "random-reminder-v4";
 
 const APP_SHELL = [
     "/",
@@ -10,6 +10,7 @@ const APP_SHELL = [
     "/js/modal.js",
     "/js/dashboard.js",
     "/js/browser-notifications.js",
+    "/js/push-subscription.js",
     "/manifest.json",
     "/assets/icon-192.png",
     "/assets/icon-512.png",
@@ -199,6 +200,56 @@ self.addEventListener(
                     );
                 }
             })()
+        );
+    }
+);
+/**
+ * 接收服务端 Web Push 消息。
+ */
+self.addEventListener(
+    "push",
+    event => {
+        const defaultPayload = {
+            title: "随机提醒器",
+            body: "你收到了一条新的随机提醒。",
+            url: "/",
+        };
+
+        let payload = defaultPayload;
+
+        if (event.data) {
+            const text = event.data.text();
+
+            try {
+                payload = {
+                    ...defaultPayload,
+                    ...JSON.parse(text),
+                };
+
+            } catch {
+                payload = {
+                    ...defaultPayload,
+                    body: text,
+                };
+            }
+        }
+
+        event.waitUntil(
+            self.registration.showNotification(
+                payload.title,
+                {
+                    body: payload.body,
+                    icon: "/assets/icon-192.png",
+                    badge: "/assets/icon-192.png",
+                    tag:
+                        payload.tag ||
+                        "random-reminder-push",
+
+                    data: {
+                        url: payload.url || "/",
+                    },
+                }
+            )
         );
     }
 );

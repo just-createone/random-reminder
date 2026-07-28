@@ -31,6 +31,7 @@
         <article class="card status-card">
           <div class="card-heading">
             <h2>运行状态</h2>
+            
 
             <span id="reminderStatusBadge" class="status-badge"> 加载中 </span>
           </div>
@@ -38,11 +39,24 @@
           <p id="reminderStatusDescription" class="muted-text">
             正在读取提醒设置……
           </p>
-          <div class="browser-notification-panel">
-  <div>
-    <p class="browser-notification-title">
-      浏览器通知
+          
+
+    <p
+      id="pushSubscriptionDescription"
+      class="muted-text browser-notification-description"
+    >
+      正在检查推送订阅状态……
     </p>
+  </div>
+
+  <button
+    id="pushSubscriptionButton"
+    class="secondary-button"
+    type="button"
+  >
+    检查中……
+  </button>
+</div>
 
     <p
       id="browserNotificationDescription"
@@ -74,6 +88,77 @@
           <p id="nextReminderContent" class="next-reminder-content"></p>
         </article>
       </section>
+      <section class="card notification-settings-card">
+  <div class="card-heading">
+    <div>
+      <h2>通知设置</h2>
+
+      <p class="muted-text">
+        管理当前设备上的浏览器通知与后台推送订阅。
+      </p>
+    </div>
+  </div>
+
+  <div class="notification-settings-grid">
+    <div class="notification-setting-item">
+      <div>
+        <div class="notification-setting-heading">
+          <span class="notification-setting-icon">
+            🔔
+          </span>
+
+          <div>
+            <h3>浏览器通知</h3>
+
+            <p
+              id="browserNotificationDescription"
+              class="muted-text notification-setting-description"
+            >
+              正在检查浏览器通知权限……
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <button
+        id="browserNotificationButton"
+        class="secondary-button notification-setting-button"
+        type="button"
+      >
+        检查中……
+      </button>
+    </div>
+
+    <div class="notification-setting-item">
+      <div>
+        <div class="notification-setting-heading">
+          <span class="notification-setting-icon">
+            📡
+          </span>
+
+          <div>
+            <h3>后台推送</h3>
+
+            <p
+              id="pushSubscriptionDescription"
+              class="muted-text notification-setting-description"
+            >
+              正在检查推送订阅状态……
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <button
+        id="pushSubscriptionButton"
+        class="secondary-button notification-setting-button"
+        type="button"
+      >
+        检查中……
+      </button>
+    </div>
+  </div>
+</section>
 
       <section class="card">
         <div class="card-heading">
@@ -141,6 +226,7 @@
     <script src="/js/ui.js"></script>
     <script src="/js/modal.js"></script>
     <script src="/js/browser-notifications.js"></script>
+    <script src="/js/push-subscription.js"></script>
     <script src="/js/dashboard.js"></script>
     <script>
       if ("serviceWorker" in navigator) {
