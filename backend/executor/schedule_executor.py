@@ -1,5 +1,5 @@
 import threading
-from datetime import datetime,timedelta
+from datetime import datetime, timedelta
 
 from backend.config import logger
 from backend.notification.windows_notifier import (
@@ -21,46 +21,36 @@ class ScheduleExecutor:
 
     def __init__(
         self,
-        notification_repository: (
-            NotificationRepository | None
-        ) = None,
+        notification_repository: NotificationRepository | None = None,
         notifier: WindowsNotifier | None = None,
         web_push_service: WebPushService | None = None,
         schedule_service: ScheduleService | None = None,
         check_interval_seconds: int = 30,
         schedule_refresh_seconds: int = 300,
+        overdue_grace_minutes: int = 5,
     ) -> None:
         self.notification_repository = (
-            notification_repository
-            or NotificationRepository()
+            notification_repository or NotificationRepository()
         )
 
-        self.notifier = (
-            notifier
-            or WindowsNotifier()
-        )
+        self.notifier = notifier or WindowsNotifier()
 
-        self.web_push_service = (
-            web_push_service
-            or WebPushService()
-        )
+        self.web_push_service = web_push_service or WebPushService()
 
-        self.schedule_service = (
-    schedule_service
-    or ScheduleService()
-)
+        self.schedule_service = schedule_service or ScheduleService()
 
-        self.check_interval_seconds = (
-            check_interval_seconds
-        )
+        self.check_interval_seconds = check_interval_seconds
+
+        if overdue_grace_minutes < 0:
+            raise ValueError("过期提醒宽限时间不能小于 0")
+
+        self.overdue_grace_minutes = overdue_grace_minutes
 
         self.schedule_refresh_interval = timedelta(
-    seconds=schedule_refresh_seconds,
-)
+            seconds=schedule_refresh_seconds,
+        )
 
-        self._last_schedule_refresh_at: (
-            datetime | None
-        ) = None
+        self._last_schedule_refresh_at: datetime | None = None
 
         self._stop_event = threading.Event()
 
@@ -69,13 +59,8 @@ class ScheduleExecutor:
     def start(self) -> None:
         """启动后台执行线程。"""
 
-        if (
-            self._thread is not None
-            and self._thread.is_alive()
-        ):
-            logger.warning(
-                "Schedule executor is already running"
-            )
+        if self._thread is not None and self._thread.is_alive():
+            logger.warning("Schedule executor is already running")
             return
 
         self._stop_event.clear()
@@ -88,9 +73,7 @@ class ScheduleExecutor:
 
         self._thread.start()
 
-        logger.info(
-            "Schedule executor started"
-        )
+        logger.info("Schedule executor started")
 
     def stop(self) -> None:
         """停止后台执行线程。"""
@@ -104,56 +87,37 @@ class ScheduleExecutor:
             and thread.is_alive()
             and thread is not threading.current_thread()
         ):
-            thread.join(
-                timeout=2
-            )
+            thread.join(timeout=2)
 
         self._thread = None
 
-        logger.info(
-            "Schedule executor stopped"
-        )
+        logger.info("Schedule executor stopped")
 
     def ensure_today_schedule(
-    self,
-    now: datetime | None = None,
-    force_check: bool = False,
-) -> None:
+        self,
+        now: datetime | None = None,
+        force_check: bool = False,
+    ) -> None:
         """检查并自动创建今天的提醒计划。"""
 
         current_time = now or datetime.now()
 
-        if (
-            not force_check
-            and not self._should_refresh_schedule(
-                current_time
-            )
-        ):
+        if not force_check and not self._should_refresh_schedule(current_time):
             return
 
-        self._last_schedule_refresh_at = (
-            current_time
-        )
+        self._last_schedule_refresh_at = current_time
 
         try:
-            existing_schedules = (
-                self.schedule_service
-                .get_today_schedule()
-            )
+            existing_schedules = self.schedule_service.get_today_schedule()
 
-            schedules = (
-                self.schedule_service
-                .generate_today_schedule(
-                    force=False,
-                    now=current_time,
-                )
+            schedules = self.schedule_service.generate_today_schedule(
+                force=False,
+                now=current_time,
             )
 
             if not existing_schedules:
                 logger.info(
-                    "Daily schedule generated "
-                    "automatically: "
-                    "date=%s, count=%s",
+                    "Daily schedule generated " "automatically: " "date=%s, count=%s",
                     current_time.date().isoformat(),
                     len(schedules),
                 )
@@ -165,19 +129,15 @@ class ScheduleExecutor:
             )
 
         except Exception:
-            logger.exception(
-                "Automatic daily schedule check failed"
-            )
+            logger.exception("Automatic daily schedule check failed")
 
     def _should_refresh_schedule(
-    self,
-    now: datetime,
-) -> bool:
+        self,
+        now: datetime,
+    ) -> bool:
         """判断是否需要重新检查今日计划。"""
 
-        last_refresh = (
-            self._last_schedule_refresh_at
-        )
+        last_refresh = self._last_schedule_refresh_at
 
         if last_refresh is None:
             return True
@@ -187,20 +147,39 @@ class ScheduleExecutor:
 
         elapsed = now - last_refresh
 
-        return (
-            elapsed
-            >= self.schedule_refresh_interval
-        )
+        return elapsed >= self.schedule_refresh_interval
 
     def run_once(self) -> None:
         """立即执行一次到期通知检查。"""
 
         now = datetime.now()
 
+        # 1. 确保今天有提醒计划。
         self.ensure_today_schedule(
-    now=now,
-)
+            now=now,
+        )
 
+        # 2. 跳过超过宽限时间的过期提醒。
+        skipped_count = (
+            self.schedule_service
+            .skip_overdue_pending(
+                now=now,
+                grace_minutes=(
+                    self.overdue_grace_minutes
+                ),
+            )
+        )
+
+        if skipped_count > 0:
+            logger.info(
+                "Overdue reminder schedules skipped: "
+                "count=%s, grace_minutes=%s",
+                skipped_count,
+                self.overdue_grace_minutes,
+            )
+
+        # 3. 查询今天已经到达执行时间、
+        #    并且仍处于 pending 状态的通知。
         schedule_date = (
             now.date().isoformat()
         )
@@ -225,11 +204,14 @@ class ScheduleExecutor:
             len(tasks),
         )
 
+        # 4. 逐条发送通知。
         for task in tasks:
             try:
                 delivery_channel = (
                     self._send_notification(
-                        message=task.content_snapshot,
+                        message=(
+                            task.content_snapshot
+                        ),
                     )
                 )
 
@@ -276,13 +258,16 @@ class ScheduleExecutor:
                 )
 
                 try:
-                    self.notification_repository.mark_failed(
-                        notification_id=(
-                            task.notification_id
-                        ),
-                        schedule_id=(
-                            task.schedule_id
-                        ),
+                    (
+                        self.notification_repository
+                        .mark_failed(
+                            notification_id=(
+                                task.notification_id
+                            ),
+                            schedule_id=(
+                                task.schedule_id
+                            ),
+                        )
                     )
 
                 except Exception:
@@ -311,23 +296,18 @@ class ScheduleExecutor:
 
         except ValueError as error:
             logger.info(
-                "Web Push unavailable; "
-                "using local notification: %s",
+                "Web Push unavailable; " "using local notification: %s",
                 error,
             )
 
         except RuntimeError as error:
             logger.warning(
-                "Web Push configuration failed; "
-                "using local notification: %s",
+                "Web Push configuration failed; " "using local notification: %s",
                 error,
             )
 
         except Exception:
-            logger.exception(
-                "Unexpected Web Push error; "
-                "using local notification"
-            )
+            logger.exception("Unexpected Web Push error; " "using local notification")
 
         else:
             if result.sent > 0:
@@ -355,9 +335,7 @@ class ScheduleExecutor:
         )
 
         if send_result is False:
-            raise RuntimeError(
-                "Windows notifier returned False"
-            )
+            raise RuntimeError("Windows notifier returned False")
 
         return "local"
 
@@ -369,10 +347,6 @@ class ScheduleExecutor:
                 self.run_once()
 
             except Exception:
-                logger.exception(
-                    "Schedule executor cycle failed"
-                )
+                logger.exception("Schedule executor cycle failed")
 
-            self._stop_event.wait(
-                self.check_interval_seconds
-            )
+            self._stop_event.wait(self.check_interval_seconds)

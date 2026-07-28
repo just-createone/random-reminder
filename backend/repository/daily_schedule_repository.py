@@ -69,6 +69,81 @@ class DailyScheduleRepository:
         finally:
             connection.close()
 
+    def skip_overdue_pending(
+    self,
+    cutoff_datetime: str,
+) -> int:
+        """
+        跳过截止时间以前仍未执行的计划。
+
+        同时删除这些计划对应的 pending 通知任务，
+        但保留 daily_schedules 记录用于展示 skipped 状态。
+        """
+
+        connection = get_connection()
+
+        try:
+            cursor = connection.cursor()
+
+            cursor.execute(
+                """
+                SELECT id
+                FROM daily_schedules
+                WHERE status = 'pending'
+                AND datetime(
+                        schedule_date
+                        || ' '
+                        || scheduled_time
+                    ) < datetime(?)
+                """,
+                (cutoff_datetime,),
+            )
+
+            schedule_ids = [
+                row["id"]
+                for row in cursor.fetchall()
+            ]
+
+            if not schedule_ids:
+                return 0
+
+            placeholders = ",".join(
+                "?"
+                for _ in schedule_ids
+            )
+
+            cursor.execute(
+                f"""
+                UPDATE daily_schedules
+                SET status = 'skipped'
+                WHERE id IN ({placeholders})
+                AND status = 'pending'
+                """,
+                schedule_ids,
+            )
+
+            skipped_count = cursor.rowcount
+
+            cursor.execute(
+                f"""
+                DELETE FROM notifications
+                WHERE schedule_id IN ({placeholders})
+                AND status = 'pending'
+                """,
+                schedule_ids,
+            )
+
+            connection.commit()
+
+            return skipped_count
+
+        except Exception:
+            connection.rollback()
+            raise
+
+        finally:
+            connection.close()
+
     def create_many(
         self,
         schedule_date: str,
@@ -144,7 +219,7 @@ class DailyScheduleRepository:
 
             finally:
                 connection.close()
-                
+
     @staticmethod
     def _row_to_schedule(
         row: sqlite3.Row,

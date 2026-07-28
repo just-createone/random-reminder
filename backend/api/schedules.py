@@ -33,6 +33,8 @@ def get_today_schedule() -> dict:
     }
 
 
+
+
 @router.post("/today/generate")
 def generate_today_schedule(
     force: bool = Query(

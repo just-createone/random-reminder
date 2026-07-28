@@ -68,6 +68,34 @@ class ScheduleService:
         return self.schedule_repository.get_by_date(
             today
         )
+    
+    def skip_overdue_pending(
+    self,
+    now: datetime | None = None,
+    grace_minutes: int = 5,
+) -> int:
+        """跳过超过允许延迟时间的 pending 计划。"""
+
+        if grace_minutes < 0:
+            raise ValueError(
+                "允许延迟分钟数不能小于 0"
+            )
+
+        current_datetime = now or datetime.now()
+
+        cutoff_datetime = (
+            current_datetime
+            - timedelta(minutes=grace_minutes)
+        )
+
+        return (
+            self.schedule_repository
+            .skip_overdue_pending(
+                cutoff_datetime.strftime(
+                    "%Y-%m-%d %H:%M:%S"
+                )
+            )
+        )
 
     def generate_today_schedule(
         self,
