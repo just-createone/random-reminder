@@ -1,4 +1,5 @@
 import logging
+import os
 from pathlib import Path
 
 
@@ -39,6 +40,10 @@ VAPID_PRIVATE_KEY_PATH = (
 VAPID_APPLICATION_SERVER_KEY_PATH = (
     VAPID_DIRECTORY
     / "application_server_key.txt"
+)
+VAPID_SUBJECT = os.getenv(
+    "VAPID_SUBJECT",
+    "mailto:admin@example.com",
 )
 
 
@@ -84,3 +89,19 @@ def get_vapid_public_key() -> str:
         )
 
     return public_key
+
+def get_vapid_private_key_path() -> str:
+    """返回 Web Push 使用的 VAPID 私钥路径。"""
+
+    if not VAPID_PRIVATE_KEY_PATH.exists():
+        raise RuntimeError(
+            "VAPID 私钥不存在，"
+            "请先运行密钥生成脚本"
+        )
+
+    if not VAPID_PRIVATE_KEY_PATH.is_file():
+        raise RuntimeError(
+            "VAPID 私钥路径不是有效文件"
+        )
+
+    return str(VAPID_PRIVATE_KEY_PATH)

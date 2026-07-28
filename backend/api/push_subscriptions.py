@@ -6,6 +6,11 @@ from fastapi import (
 )
 from pydantic import BaseModel, Field
 
+from backend.config import DEBUG
+from backend.services.web_push_service import (
+    WebPushService,
+)
+
 from backend.services.push_subscription_service import (
     PushSubscriptionService,
 )
@@ -19,6 +24,7 @@ router = APIRouter(
 push_subscription_service = (
     PushSubscriptionService()
 )
+web_push_service = WebPushService()
 
 
 class PushSubscriptionKeysRequest(BaseModel):
@@ -87,6 +93,41 @@ class VapidPublicKeyResponse(BaseModel):
     """返回浏览器订阅需要的 VAPID 公钥。"""
 
     public_key: str
+
+class WebPushTestRequest(BaseModel):
+    """发送测试 Web Push 的请求数据。"""
+
+    title: str = Field(
+        default="随机提醒器",
+        min_length=1,
+        max_length=100,
+        description="推送通知标题",
+    )
+
+    message: str = Field(
+        ...,
+        min_length=1,
+        max_length=500,
+        description="推送通知内容",
+    )
+
+    url: str = Field(
+        default="/",
+        min_length=1,
+        max_length=500,
+        description="点击通知后打开的站内地址",
+    )
+
+
+class WebPushTestResponse(BaseModel):
+    """测试 Web Push 的发送结果。"""
+
+    success: bool
+    total: int
+    sent: int
+    failed: int
+    deactivated: int
+    message: str
 
 
 @router.post(
@@ -200,6 +241,64 @@ def get_vapid_public_key(
         return VapidPublicKeyResponse(
             public_key=public_key,
         )
+
+    except RuntimeError as error:
+        raise HTTPException(
+            status_code=(
+                status.HTTP_500_INTERNAL_SERVER_ERROR
+            ),
+            detail=str(error),
+        ) from error
+    
+
+@router.post(
+    "/test-send",
+    response_model=WebPushTestResponse,
+)
+def send_test_web_push(
+    request: WebPushTestRequest,
+) -> WebPushTestResponse:
+    """向所有有效订阅发送测试 Web Push。"""
+
+    if not DEBUG:
+        raise HTTPException(
+            status_code=(
+                status.HTTP_404_NOT_FOUND
+            ),
+            detail="测试推送接口未开放",
+        )
+
+    try:
+        result = web_push_service.send_to_all(
+            title=request.title,
+            body=request.message,
+            url=request.url,
+        )
+
+        success = result.sent > 0
+
+        message = (
+            f"处理 {result.total} 个订阅，"
+            f"成功 {result.sent} 个，"
+            f"失败 {result.failed} 个。"
+        )
+
+        return WebPushTestResponse(
+            success=success,
+            total=result.total,
+            sent=result.sent,
+            failed=result.failed,
+            deactivated=result.deactivated,
+            message=message,
+        )
+
+    except ValueError as error:
+        raise HTTPException(
+            status_code=(
+                status.HTTP_400_BAD_REQUEST
+            ),
+            detail=str(error),
+        ) from error
 
     except RuntimeError as error:
         raise HTTPException(
