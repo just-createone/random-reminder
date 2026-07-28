@@ -26,3 +26,18 @@ class NotificationTask:
     schedule_id: int
     content_snapshot: str
     scheduled_time: str
+
+
+@dataclass(frozen=True)
+class NotificationHistoryItem:
+    """表示一条可展示的通知历史记录。"""
+
+    notification_id: int
+    schedule_id: int
+    content: str
+    schedule_date: str
+    scheduled_time: str
+    notification_status: str
+    schedule_status: str
+    sent_at: str | None
+    created_at: str

@@ -38,30 +38,20 @@ FRONTEND_DIR = BASE_DIR / "frontend"
 # ===============================
 
 @asynccontextmanager
-async def lifespan(
-    _app: FastAPI,
-) -> AsyncIterator[None]:
-    """
-    管理应用启动和关闭。
-    """
+async def lifespan(app: FastAPI):
+    """管理应用启动和关闭。"""
 
     init_database()
-
     schedule_executor.start()
 
-    logger.info(
-        "Server started"
-    )
+    logger.info("Server started")
 
+    try:
+        yield
 
-    yield
-
-
-    await schedule_executor.stop()
-
-    logger.info(
-        "Server stopped"
-    )
+    finally:
+        schedule_executor.stop()
+        logger.info("Server stopped")
 
 
 

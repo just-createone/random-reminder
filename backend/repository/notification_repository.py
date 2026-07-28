@@ -3,6 +3,7 @@ import sqlite3
 from backend.database.db import get_connection
 from backend.domain.notification import (
     Notification,
+    NotificationHistoryItem,
     NotificationTask,
 )
 
@@ -341,6 +342,76 @@ class NotificationRepository:
         except Exception:
             connection.rollback()
             raise
+
+        finally:
+            connection.close()
+
+
+    def get_recent_history(
+        self,
+        limit: int = 20,
+    ) -> list[NotificationHistoryItem]:
+        """查询最近的通知执行记录。"""
+
+        if limit < 1:
+            return []
+
+        connection = get_connection()
+
+        try:
+            cursor = connection.cursor()
+
+            cursor.execute(
+                """
+                SELECT
+                    notifications.id AS notification_id,
+                    notifications.schedule_id,
+                    notifications.status
+                        AS notification_status,
+                    notifications.sent_at,
+                    notifications.created_at,
+                    daily_schedules.content_snapshot
+                        AS content,
+                    daily_schedules.schedule_date,
+                    daily_schedules.scheduled_time,
+                    daily_schedules.status
+                        AS schedule_status
+                FROM notifications
+                INNER JOIN daily_schedules
+                    ON daily_schedules.id =
+                    notifications.schedule_id
+                ORDER BY notifications.id DESC
+                LIMIT ?
+                """,
+                (limit,),
+            )
+
+            rows = cursor.fetchall()
+
+            return [
+                NotificationHistoryItem(
+                    notification_id=row[
+                        "notification_id"
+                    ],
+                    schedule_id=row["schedule_id"],
+                    content=row["content"],
+                    schedule_date=row[
+                        "schedule_date"
+                    ],
+                    scheduled_time=row[
+                        "scheduled_time"
+                    ],
+                    notification_status=row[
+                        "notification_status"
+                    ],
+                    schedule_status=row[
+                        "schedule_status"
+                    ],
+                    sent_at=row["sent_at"],
+                    created_at=row["created_at"],
+                )
+                for row in rows
+            ]
 
         finally:
             connection.close()

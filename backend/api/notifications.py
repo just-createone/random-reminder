@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
 from backend.notification.notification_service import (
@@ -34,10 +34,24 @@ class NotificationTestRequest(BaseModel):
     )
 
 
+class NotificationHistoryResponse(BaseModel):
+    """通知历史接口的响应数据。"""
+
+    notification_id: int
+    schedule_id: int
+    content: str
+    schedule_date: str
+    scheduled_time: str
+    notification_status: str
+    schedule_status: str
+    sent_at: str | None
+    created_at: str
+
+
 @router.post("/test")
 def test_notification(
     request: NotificationTestRequest,
-) -> dict:
+) -> dict[str, object]:
     """发送一条测试通知。"""
 
     try:
@@ -63,3 +77,36 @@ def test_notification(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(error),
         ) from error
+
+
+@router.get(
+    "/history",
+    response_model=list[NotificationHistoryResponse],
+)
+def get_notification_history(
+    limit: int = Query(
+        default=20,
+        ge=1,
+        le=100,
+    ),
+) -> list[NotificationHistoryResponse]:
+    """查询最近的通知历史。"""
+
+    items = notification_service.get_recent_history(
+        limit=limit,
+    )
+
+    return [
+        NotificationHistoryResponse(
+            notification_id=item.notification_id,
+            schedule_id=item.schedule_id,
+            content=item.content,
+            schedule_date=item.schedule_date,
+            scheduled_time=item.scheduled_time,
+            notification_status=item.notification_status,
+            schedule_status=item.schedule_status,
+            sent_at=item.sent_at,
+            created_at=item.created_at,
+        )
+        for item in items
+    ]
