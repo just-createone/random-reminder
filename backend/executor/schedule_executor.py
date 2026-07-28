@@ -1,242 +1,193 @@
-import asyncio
-from contextlib import suppress
-from datetime import datetime, timedelta
+import threading
+from datetime import datetime
 
 from backend.config import logger
-from backend.notification.notification_service import (
-    NotificationService,
+from backend.notification.windows_notifier import (
+    WindowsNotifier,
 )
-from backend.repository.daily_schedule_repository import (
-    DailyScheduleRepository,
+from backend.repository.notification_repository import (
+    NotificationRepository,
 )
-from backend.repository.settings_repository import (
-    SettingsRepository,
-)
-from backend.services.schedule_service import ScheduleService
 
 
 class ScheduleExecutor:
-    """持续检查并执行已经到期的随机提醒计划。"""
-
-    CHECK_INTERVAL_SECONDS = 15
-    LATE_GRACE_MINUTES = 2
+    """定时检查并发送已经到期的提醒通知。"""
 
     def __init__(
         self,
-        schedule_repository: DailyScheduleRepository | None = None,
-        settings_repository: SettingsRepository | None = None,
-        schedule_service: ScheduleService | None = None,
-        notification_service: NotificationService | None = None,
+        notification_repository: NotificationRepository | None = None,
+        notifier: WindowsNotifier | None = None,
+        check_interval_seconds: int = 30,
     ) -> None:
-        self.schedule_repository = (
-            schedule_repository
-            or DailyScheduleRepository()
+        self.notification_repository = (
+            notification_repository
+            or NotificationRepository()
         )
 
-        self.settings_repository = (
-            settings_repository
-            or SettingsRepository()
+        self.notifier = (
+            notifier
+            or WindowsNotifier()
         )
 
-        self.schedule_service = (
-            schedule_service
-            or ScheduleService()
+        self.check_interval_seconds = (
+            check_interval_seconds
         )
 
-        self.notification_service = (
-            notification_service
-            or NotificationService()
-        )
+        self._stop_event = threading.Event()
 
-        self._task: asyncio.Task[None] | None = None
-        self._running = False
-
-    @property
-    def is_running(self) -> bool:
-        """返回执行器是否正在运行。"""
-
-        return (
-            self._running
-            and self._task is not None
-            and not self._task.done()
-        )
+        self._thread: threading.Thread | None = None
 
     def start(self) -> None:
-        """启动后台执行器。"""
+        """启动后台执行线程。"""
 
-        if self.is_running:
+        if (
+            self._thread is not None
+            and self._thread.is_alive()
+        ):
             logger.warning(
                 "Schedule executor is already running"
             )
             return
 
-        self._running = True
+        self._stop_event.clear()
 
-        self._task = asyncio.create_task(
-            self._run_loop(),
-            name="random-reminder-schedule-executor",
+        self._thread = threading.Thread(
+            target=self._run,
+            name="schedule-executor",
+            daemon=True,
         )
+
+        self._thread.start()
 
         logger.info(
-            "Schedule executor started | interval=%s seconds",
-            self.CHECK_INTERVAL_SECONDS,
+            "Schedule executor started"
         )
 
-    async def stop(self) -> None:
-        """停止后台执行器。"""
+    def stop(self) -> None:
+        """停止后台执行线程。"""
 
-        self._running = False
+        self._stop_event.set()
 
-        if self._task is None:
+        if (
+            self._thread is not None
+            and self._thread.is_alive()
+        ):
+            self._thread.join(
+                timeout=2
+            )
+
+        self._thread = None
+
+        logger.info(
+            "Schedule executor stopped"
+        )
+
+    def run_once(self) -> None:
+        """立即执行一次到期通知检查。"""
+
+        now = datetime.now()
+
+        schedule_date = (
+            now.date().isoformat()
+        )
+
+        current_time = (
+            now.strftime("%H:%M:%S")
+        )
+
+        tasks = (
+            self.notification_repository
+            .get_due_pending(
+                schedule_date=schedule_date,
+                current_time=current_time,
+            )
+        )
+
+        if not tasks:
             return
 
-        self._task.cancel()
-
-        with suppress(asyncio.CancelledError):
-            await self._task
-
-        self._task = None
-
-        logger.info("Schedule executor stopped")
-
-    async def run_once(self) -> dict[str, int]:
-        """立即执行一次计划检查。"""
-
-        return await asyncio.to_thread(
-            self._run_once_sync
+        logger.info(
+            "Found %s due notification tasks",
+            len(tasks),
         )
 
-    async def _run_loop(self) -> None:
-        """按照固定时间间隔持续检查计划。"""
-
-        while self._running:
+        for task in tasks:
             try:
-                result = await self.run_once()
+                send_result = self.notifier.send(
+                    title="随机提醒器",
+                    message=task.content_snapshot,
+                )
 
-                if (
-                    result["sent"] > 0
-                    or result["skipped"] > 0
-                    or result["failed"] > 0
-                ):
-                    logger.info(
-                        "Schedule check completed | "
-                        "sent=%s | skipped=%s | failed=%s",
-                        result["sent"],
-                        result["skipped"],
-                        result["failed"],
+                if send_result is False:
+                    raise RuntimeError(
+                        "Windows notifier returned False"
                     )
+
+                updated = (
+                    self.notification_repository
+                    .mark_sent(
+                        notification_id=(
+                            task.notification_id
+                        ),
+                        schedule_id=(
+                            task.schedule_id
+                        ),
+                    )
+                )
+
+                if not updated:
+                    logger.warning(
+                        "Notification status was not updated: "
+                        "notification_id=%s, schedule_id=%s",
+                        task.notification_id,
+                        task.schedule_id,
+                    )
+
+                    continue
+
+                logger.info(
+                    "Notification sent: "
+                    "notification_id=%s, schedule_id=%s",
+                    task.notification_id,
+                    task.schedule_id,
+                )
 
             except Exception:
                 logger.exception(
-                    "Unexpected schedule executor error"
+                    "Failed to send notification: "
+                    "notification_id=%s, schedule_id=%s",
+                    task.notification_id,
+                    task.schedule_id,
                 )
 
-            await asyncio.sleep(
-                self.CHECK_INTERVAL_SECONDS
-            )
+                try:
+                    self.notification_repository.mark_failed(
+                        notification_id=(
+                            task.notification_id
+                        ),
+                        schedule_id=(
+                            task.schedule_id
+                        ),
+                    )
 
-    def _run_once_sync(self) -> dict[str, int]:
-        """同步完成一次数据库检查和通知发送。"""
+                except Exception:
+                    logger.exception(
+                        "Failed to update notification "
+                        "failure status"
+                    )
 
-        result = {
-            "sent": 0,
-            "skipped": 0,
-            "failed": 0,
-        }
+    def _run(self) -> None:
+        """后台线程的循环执行逻辑。"""
 
-        settings = self.settings_repository.get()
-
-        if not settings.enabled:
-            return result
-
-        now = datetime.now()
-        today = now.date().isoformat()
-
-        schedules = (
-            self.schedule_repository.get_by_date(
-                today
-            )
-        )
-
-        if not schedules:
+        while not self._stop_event.is_set():
             try:
-                schedules = (
-                    self.schedule_service
-                    .generate_today_schedule()
-                )
+                self.run_once()
 
-            except ValueError as error:
-                logger.warning(
-                    "Today schedule was not generated: %s",
-                    error,
-                )
-
-                return result
-
-        grace_deadline_delta = timedelta(
-            minutes=self.LATE_GRACE_MINUTES
-        )
-
-        for schedule in schedules:
-            if schedule.status != "pending":
-                continue
-
-            scheduled_datetime = datetime.fromisoformat(
-                (
-                    f"{schedule.schedule_date}"
-                    f"T{schedule.scheduled_time}"
-                )
-            )
-
-            if scheduled_datetime > now:
-                continue
-
-            delay = now - scheduled_datetime
-
-            if delay > grace_deadline_delta:
-                self.schedule_repository.update_status(
-                    schedule_id=schedule.id,
-                    status="skipped",
-                )
-
-                result["skipped"] += 1
-
-                logger.info(
-                    "Expired schedule skipped | "
-                    "schedule_id=%s | scheduled_time=%s",
-                    schedule.id,
-                    schedule.scheduled_time,
-                )
-
-                continue
-
-            try:
-                self.notification_service.send(
-                    title="随机提醒器",
-                    message=schedule.content,
-                )
-
-                self.schedule_repository.update_status(
-                    schedule_id=schedule.id,
-                    status="sent",
-                )
-
-                result["sent"] += 1
-
-                logger.info(
-                    "Schedule notification sent | "
-                    "schedule_id=%s | scheduled_time=%s",
-                    schedule.id,
-                    schedule.scheduled_time,
-                )
-
-            except RuntimeError:
-                result["failed"] += 1
-
+            except Exception:
                 logger.exception(
-                    "Schedule notification failed | "
-                    "schedule_id=%s",
-                    schedule.id,
+                    "Schedule executor cycle failed"
                 )
 
-        return result
+            self._stop_event.wait(
+                self.check_interval_seconds
+            )
