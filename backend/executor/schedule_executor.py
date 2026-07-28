@@ -145,6 +145,7 @@ class ScheduleExecutor:
                 self.schedule_service
                 .generate_today_schedule(
                     force=False,
+                    now=current_time,
                 )
             )
 

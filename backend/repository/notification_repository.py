@@ -1,4 +1,5 @@
 import sqlite3
+from datetime import date
 
 from backend.database.db import get_connection
 from backend.domain.notification import (
@@ -37,14 +38,10 @@ class NotificationRepository:
         finally:
             connection.close()
 
-        notification = self.get_by_schedule_id(
-            schedule_id
-        )
+        notification = self.get_by_schedule_id(schedule_id)
 
         if notification is None:
-            raise RuntimeError(
-                "创建通知后无法读取通知记录"
-            )
+            raise RuntimeError("创建通知后无法读取通知记录")
 
         return notification
 
@@ -69,18 +66,12 @@ class NotificationRepository:
                 )
                 VALUES (?)
                 """,
-                [
-                    (schedule_id,)
-                    for schedule_id in schedule_ids
-                ],
+                [(schedule_id,) for schedule_id in schedule_ids],
             )
 
             connection.commit()
 
-            placeholders = ",".join(
-                "?"
-                for _ in schedule_ids
-            )
+            placeholders = ",".join("?" for _ in schedule_ids)
 
             cursor.execute(
                 f"""
@@ -99,10 +90,7 @@ class NotificationRepository:
 
             rows = cursor.fetchall()
 
-            return [
-                self._row_to_notification(row)
-                for row in rows
-            ]
+            return [self._row_to_notification(row) for row in rows]
 
         finally:
             connection.close()
@@ -190,11 +178,11 @@ class NotificationRepository:
             sent_at=row["sent_at"],
             created_at=row["created_at"],
         )
-    
+
     def get_due_pending(
-    self,
-    schedule_date: str,
-    current_time: str,
+        self,
+        schedule_date: str,
+        current_time: str,
     ) -> list[NotificationTask]:
         """查询指定日期中已经到达执行时间的待发送通知。"""
 
@@ -242,7 +230,6 @@ class NotificationRepository:
         finally:
             connection.close()
 
-
     def mark_sent(
         self,
         notification_id: int,
@@ -267,9 +254,7 @@ class NotificationRepository:
                 (notification_id,),
             )
 
-            notification_updated = (
-                cursor.rowcount == 1
-            )
+            notification_updated = cursor.rowcount == 1
 
             if not notification_updated:
                 connection.rollback()
@@ -285,9 +270,7 @@ class NotificationRepository:
                 (schedule_id,),
             )
 
-            schedule_updated = (
-                cursor.rowcount == 1
-            )
+            schedule_updated = cursor.rowcount == 1
 
             if not schedule_updated:
                 connection.rollback()
@@ -303,7 +286,6 @@ class NotificationRepository:
 
         finally:
             connection.close()
-
 
     def mark_failed(
         self,
@@ -346,15 +328,21 @@ class NotificationRepository:
         finally:
             connection.close()
 
-
     def get_recent_history(
         self,
         limit: int = 20,
     ) -> list[NotificationHistoryItem]:
-        """查询最近的通知执行记录。"""
+        """
+        查询最近的通知记录。
+
+        历史记录显示已发送和发送失败的通知；
+        pending 状态只显示今天仍然有效的通知。
+        """
 
         if limit < 1:
             return []
+
+        today = date.today().isoformat()
 
         connection = get_connection()
 
@@ -364,7 +352,8 @@ class NotificationRepository:
             cursor.execute(
                 """
                 SELECT
-                    notifications.id AS notification_id,
+                    notifications.id
+                        AS notification_id,
                     notifications.schedule_id,
                     notifications.status
                         AS notification_status,
@@ -380,33 +369,39 @@ class NotificationRepository:
                 INNER JOIN daily_schedules
                     ON daily_schedules.id =
                     notifications.schedule_id
-                ORDER BY notifications.id DESC
+                WHERE
+                    notifications.status IN (
+                        'sent',
+                        'failed'
+                    )
+                    OR (
+                        notifications.status = 'pending'
+                        AND daily_schedules.status = 'pending'
+                        AND daily_schedules.schedule_date = ?
+                    )
+                ORDER BY
+                    daily_schedules.schedule_date DESC,
+                    daily_schedules.scheduled_time DESC,
+                    notifications.id DESC
                 LIMIT ?
                 """,
-                (limit,),
+                (
+                    today,
+                    limit,
+                ),
             )
 
             rows = cursor.fetchall()
 
             return [
                 NotificationHistoryItem(
-                    notification_id=row[
-                        "notification_id"
-                    ],
+                    notification_id=row["notification_id"],
                     schedule_id=row["schedule_id"],
                     content=row["content"],
-                    schedule_date=row[
-                        "schedule_date"
-                    ],
-                    scheduled_time=row[
-                        "scheduled_time"
-                    ],
-                    notification_status=row[
-                        "notification_status"
-                    ],
-                    schedule_status=row[
-                        "schedule_status"
-                    ],
+                    schedule_date=row["schedule_date"],
+                    scheduled_time=row["scheduled_time"],
+                    notification_status=row["notification_status"],
+                    schedule_status=row["schedule_status"],
                     sent_at=row["sent_at"],
                     created_at=row["created_at"],
                 )

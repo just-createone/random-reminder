@@ -1,5 +1,5 @@
 import random
-from datetime import date
+from datetime import date, datetime, timedelta
 
 from backend.domain.daily_schedule import DailySchedule
 from backend.domain.reminder import Reminder
@@ -22,6 +22,8 @@ from backend.strategy.random_schedule_strategy import (
 
 class ScheduleService:
     """生成并查询每日随机提醒计划。"""
+
+    MINIMUM_LEAD_MINUTES = 2
 
     def __init__(
         self,
@@ -70,10 +72,12 @@ class ScheduleService:
     def generate_today_schedule(
         self,
         force: bool = False,
+        now: datetime | None = None,
     ) -> list[DailySchedule]:
-        """生成今天的随机提醒计划。"""
+        """生成今天的未来随机提醒计划。"""
 
-        today = date.today().isoformat()
+        current_datetime = now or datetime.now()
+        today = current_datetime.date().isoformat()
 
         existing_schedule = (
             self.schedule_repository.get_by_date(
@@ -104,7 +108,7 @@ class ScheduleService:
                 "没有可用于生成计划的启用提醒"
             )
 
-        start_time, end_time = (
+        configured_start_time, end_time = (
             self._resolve_time_range(
                 all_day=settings.all_day,
                 start_time=settings.start_time,
@@ -112,18 +116,45 @@ class ScheduleService:
             )
         )
 
-        generated_times = self.strategy.generate_times(
-            start_time=start_time,
-            end_time=end_time,
-            times_per_day=settings.times_per_day,
-            minimum_interval=settings.minimum_interval,
+        start_time = (
+            self._resolve_future_start_time(
+                start_time=configured_start_time,
+                end_time=end_time,
+                now=current_datetime,
+                lead_minutes=(
+                    self.MINIMUM_LEAD_MINUTES
+                ),
+            )
         )
+
+        try:
+            generated_times = (
+                self.strategy.generate_times(
+                    start_time=start_time,
+                    end_time=end_time,
+                    times_per_day=(
+                        settings.times_per_day
+                    ),
+                    minimum_interval=(
+                        settings.minimum_interval
+                    ),
+                )
+            )
+
+        except ValueError as error:
+            raise ValueError(
+                "今天剩余时间不足，"
+                f"无法生成 {settings.times_per_day} "
+                "条符合间隔要求的提醒"
+            ) from error
 
         selected_reminders = self._select_reminders(
             reminders=reminders,
-            count=settings.times_per_day,
+            count=len(generated_times),
         )
 
+        # 先成功生成新时间，再删除旧计划。
+        # 如果生成失败，原有计划会继续保留。
         if force:
             self.schedule_repository.delete_by_date(
                 today
@@ -188,6 +219,85 @@ class ScheduleService:
             )
 
         return start_time, end_time
+
+    @classmethod
+    def _resolve_future_start_time(
+        cls,
+        start_time: str,
+        end_time: str,
+        now: datetime,
+        lead_minutes: int,
+    ) -> str:
+        """计算今天实际可用于生成计划的开始时间。"""
+
+        start_clock = datetime.strptime(
+            start_time,
+            "%H:%M",
+        ).time()
+
+        end_clock = datetime.strptime(
+            end_time,
+            "%H:%M",
+        ).time()
+
+        configured_start = datetime.combine(
+            now.date(),
+            start_clock,
+        )
+
+        configured_end = datetime.combine(
+            now.date(),
+            end_clock,
+        )
+
+        if configured_end < configured_start:
+            raise ValueError(
+                "提醒结束时间必须晚于开始时间"
+            )
+
+        earliest_future_time = (
+            now
+            + timedelta(
+                minutes=lead_minutes,
+            )
+        )
+
+        earliest_future_time = (
+            cls._ceil_to_minute(
+                earliest_future_time
+            )
+        )
+
+        effective_start = max(
+            configured_start,
+            earliest_future_time,
+        )
+
+        if effective_start > configured_end:
+            raise ValueError(
+                "今天的提醒时间范围已经结束，"
+                "无法生成新的提醒计划"
+            )
+
+        return effective_start.strftime(
+            "%H:%M"
+        )
+
+    @staticmethod
+    def _ceil_to_minute(
+        value: datetime,
+    ) -> datetime:
+        """将时间向上取整到下一整分钟。"""
+
+        rounded = value.replace(
+            second=0,
+            microsecond=0,
+        )
+
+        if value.second or value.microsecond:
+            rounded += timedelta(minutes=1)
+
+        return rounded
 
     @staticmethod
     def _select_reminders(
