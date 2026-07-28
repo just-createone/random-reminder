@@ -1,5 +1,5 @@
 const CACHE_NAME =
-    "random-reminder-v2";
+    "random-reminder-v3";
 
 const APP_SHELL = [
     "/",
@@ -9,9 +9,11 @@ const APP_SHELL = [
     "/js/ui.js",
     "/js/modal.js",
     "/js/dashboard.js",
+    "/js/browser-notifications.js",
     "/manifest.json",
     "/assets/icon-192.png",
     "/assets/icon-512.png",
+    
 ];
 
 
@@ -147,6 +149,54 @@ self.addEventListener(
                     }
 
                     return Response.error();
+                }
+            })()
+        );
+    }
+);
+/**
+ * 用户点击通知时，聚焦或重新打开应用。
+ */
+self.addEventListener(
+    "notificationclick",
+    event => {
+        event.notification.close();
+
+        const targetPath =
+            event.notification.data?.url || "/";
+
+        const targetUrl = new URL(
+            targetPath,
+            self.location.origin
+        ).href;
+
+        event.waitUntil(
+            (async () => {
+                const windowClients =
+                    await clients.matchAll({
+                        type: "window",
+                        includeUncontrolled: true,
+                    });
+
+                for (
+                    const client
+                    of windowClients
+                ) {
+                    if (
+                        client.url.startsWith(
+                            self.location.origin
+                        ) &&
+                        "focus" in client
+                    ) {
+                        await client.focus();
+                        return;
+                    }
+                }
+
+                if ("openWindow" in clients) {
+                    await clients.openWindow(
+                        targetUrl
+                    );
                 }
             })()
         );

@@ -38,6 +38,28 @@
           <p id="reminderStatusDescription" class="muted-text">
             正在读取提醒设置……
           </p>
+          <div class="browser-notification-panel">
+  <div>
+    <p class="browser-notification-title">
+      浏览器通知
+    </p>
+
+    <p
+      id="browserNotificationDescription"
+      class="muted-text browser-notification-description"
+    >
+      正在检查浏览器通知权限……
+    </p>
+  </div>
+
+  <button
+    id="browserNotificationButton"
+    class="secondary-button"
+    type="button"
+  >
+    检查中……
+  </button>
+</div>
         </article>
 
         <article class="card next-reminder-card">
@@ -118,6 +140,7 @@
     <script src="/js/api.js"></script>
     <script src="/js/ui.js"></script>
     <script src="/js/modal.js"></script>
+    <script src="/js/browser-notifications.js"></script>
     <script src="/js/dashboard.js"></script>
     <script>
       if ("serviceWorker" in navigator) {
