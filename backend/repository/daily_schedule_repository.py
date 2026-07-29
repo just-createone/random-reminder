@@ -69,6 +69,47 @@ class DailyScheduleRepository:
         finally:
             connection.close()
 
+    def delete_replaceable_by_date(
+    self,
+    schedule_date: str,
+) -> int:
+        """
+        删除指定日期中可以被重新生成的计划。
+
+        pending 和 skipped 可以删除；
+        sent 和 failed 需要作为执行历史保留。
+        """
+
+        connection = get_connection()
+
+        try:
+            cursor = connection.cursor()
+
+            cursor.execute(
+                """
+                DELETE FROM daily_schedules
+                WHERE schedule_date = ?
+                AND status IN (
+                    'pending',
+                    'skipped'
+                )
+                """,
+                (schedule_date,),
+            )
+
+            deleted_count = cursor.rowcount
+
+            connection.commit()
+
+            return deleted_count
+
+        except Exception:
+            connection.rollback()
+            raise
+
+        finally:
+            connection.close()
+
     def skip_overdue_pending(
     self,
     cutoff_datetime: str,
