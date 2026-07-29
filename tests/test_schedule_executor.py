@@ -4,7 +4,7 @@ from backend.executor.schedule_executor import (
 
 
 class FakeScheduleService:
-    """用于测试总开关行为。"""
+    """测试执行器时使用的计划服务。"""
 
     def __init__(self) -> None:
         self.enabled = False
@@ -16,6 +16,7 @@ class FakeScheduleService:
 
     def get_today_schedule(self) -> list[object]:
         self.schedule_check_count += 1
+
         return [object()]
 
     def generate_today_schedule(
@@ -31,11 +32,12 @@ class FakeScheduleService:
         grace_minutes: int = 5,
     ) -> int:
         self.skip_count += 1
+
         return 0
 
 
 class FakeNotificationRepository:
-    """记录执行器是否查询了到期通知。"""
+    """记录是否查询了待发送通知。"""
 
     def __init__(self) -> None:
         self.query_count = 0
@@ -46,10 +48,13 @@ class FakeNotificationRepository:
         current_time: str,
     ) -> list[object]:
         self.query_count += 1
+
         return []
 
 
-def main() -> None:
+def test_executor_pauses_and_resumes_with_settings() -> None:
+    """总开关应控制整个提醒执行流程。"""
+
     schedule_service = FakeScheduleService()
     notification_repository = (
         FakeNotificationRepository()
@@ -64,63 +69,18 @@ def main() -> None:
         web_push_service=object(),
     )
 
-    # 总开关关闭：不能检查计划和通知。
+    # 总开关关闭。
     executor.run_once()
 
-    assert (
-        schedule_service.schedule_check_count
-        == 0
-    )
+    assert schedule_service.schedule_check_count == 0
     assert schedule_service.skip_count == 0
-    assert (
-        notification_repository.query_count
-        == 0
-    )
+    assert notification_repository.query_count == 0
 
-    print(
-        {
-            "disabled_schedule_checks": (
-                schedule_service
-                .schedule_check_count
-            ),
-            "disabled_due_queries": (
-                notification_repository
-                .query_count
-            ),
-        }
-    )
-
-    # 总开关开启：恢复正常检查。
+    # 重新开启总开关。
     schedule_service.enabled = True
 
     executor.run_once()
 
-    assert (
-        schedule_service.schedule_check_count
-        == 1
-    )
+    assert schedule_service.schedule_check_count == 1
     assert schedule_service.skip_count == 1
-    assert (
-        notification_repository.query_count
-        == 1
-    )
-
-    print(
-        {
-            "enabled_schedule_checks": (
-                schedule_service
-                .schedule_check_count
-            ),
-            "enabled_due_queries": (
-                notification_repository
-                .query_count
-            ),
-        }
-    )
-
-    print("执行器暂停和恢复测试通过")
-
-
-if __name__ == "__main__":
-    main()
-    
+    assert notification_repository.query_count == 1
