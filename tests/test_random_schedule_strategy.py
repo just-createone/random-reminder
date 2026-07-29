@@ -70,3 +70,45 @@ def test_generate_times_rejects_insufficient_range() -> None:
             times_per_day=3,
             minimum_interval=30,
         )
+
+
+def test_generate_times_avoids_excluded_times() -> None:
+    """生成时间不能使用已经被占用的时间。"""
+
+    strategy = RandomScheduleStrategy()
+
+    result = strategy.generate_times(
+        start_time="08:00",
+        end_time="08:02",
+        times_per_day=2,
+        minimum_interval=1,
+        excluded_times={
+            "08:01",
+        },
+    )
+
+    assert result == [
+        "08:00",
+        "08:02",
+    ]
+
+
+def test_generate_times_rejects_insufficient_range_after_exclusion(
+) -> None:
+    """排除占用时间后数量不足应生成失败。"""
+
+    strategy = RandomScheduleStrategy()
+
+    with pytest.raises(
+        ValueError,
+        match="当前时间范围无法生成",
+    ):
+        strategy.generate_times(
+            start_time="08:00",
+            end_time="08:02",
+            times_per_day=3,
+            minimum_interval=1,
+            excluded_times={
+                "08:01",
+            },
+        )

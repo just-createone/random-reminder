@@ -16,7 +16,13 @@ class FixedScheduleStrategy:
     """返回固定时间，避免随机结果影响测试。"""
 
     def __init__(self) -> None:
-        self.requested_count: int | None = None
+        self.requested_count: (
+            int | None
+        ) = None
+
+        self.excluded_times: (
+            set[str] | None
+        ) = None
 
     def generate_times(
         self,
@@ -24,8 +30,17 @@ class FixedScheduleStrategy:
         end_time: str,
         times_per_day: int,
         minimum_interval: int,
+        excluded_times: (
+            set[str] | None
+        ) = None,
     ) -> list[str]:
-        self.requested_count = times_per_day
+        self.requested_count = (
+            times_per_day
+        )
+
+        self.excluded_times = (
+            excluded_times
+        )
 
         assert times_per_day == 2
 
@@ -190,6 +205,9 @@ def test_regeneration_preserves_sent_history(
     )
 
     assert strategy.requested_count == 2
+    assert strategy.excluded_times == {
+    "09:00",
+}
     assert len(schedules) == 3
 
     statuses = [
