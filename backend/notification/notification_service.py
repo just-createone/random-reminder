@@ -1,10 +1,15 @@
 import platform
 
 from backend.config import logger
-from backend.domain.notification import NotificationHistoryItem
-from backend.notification.base import NotificationProvider
-from backend.notification.console_notifier import ConsoleNotifier
-from backend.notification.windows_notifier import WindowsNotifier
+from backend.domain.notification import (
+    NotificationHistoryItem,
+)
+from backend.notification.base import (
+    NotificationProvider,
+)
+from backend.notification.console_notifier import (
+    ConsoleNotifier,
+)
 from backend.repository.notification_repository import (
     NotificationRepository,
 )
@@ -16,7 +21,9 @@ class NotificationService:
     def __init__(
         self,
         provider: NotificationProvider | None = None,
-        notification_repository: NotificationRepository | None = None,
+        notification_repository: (
+            NotificationRepository | None
+        ) = None,
     ) -> None:
         self.provider = (
             provider
@@ -32,8 +39,13 @@ class NotificationService:
         self,
         title: str,
         message: str,
-    ) -> None:
-        """验证内容并发送通知。"""
+    ) -> str:
+        """
+        验证并发送系统通知。
+
+        返回实际使用的通知渠道：
+        windows 或 console。
+        """
 
         cleaned_title = title.strip()
         cleaned_message = message.strip()
@@ -54,6 +66,10 @@ class NotificationService:
                 message=cleaned_message,
             )
 
+            return self._get_provider_name(
+                self.provider
+            )
+
         except Exception:
             logger.exception(
                 "System notification failed, "
@@ -67,10 +83,7 @@ class NotificationService:
                 message=cleaned_message,
             )
 
-            raise RuntimeError(
-                "系统通知发送失败，"
-                "请检查 Windows 通知权限"
-            )
+            return "console"
 
     def get_recent_history(
         self,
@@ -97,17 +110,56 @@ class NotificationService:
 
     @staticmethod
     def _create_provider() -> NotificationProvider:
-        """根据操作系统选择通知实现。"""
+        """根据当前操作系统创建通知实现。"""
 
         system_name = platform.system()
 
         if system_name == "Windows":
-            return WindowsNotifier()
+            try:
+                # 只在 Windows 环境中导入，
+                # 避免 Linux 启动时依赖 winotify。
+                from backend.notification.windows_notifier import (
+                    WindowsNotifier,
+                )
 
-        logger.warning(
-            "Unsupported notification platform: %s; "
+                return WindowsNotifier()
+
+            except (ImportError, OSError):
+                logger.exception(
+                    "Windows notification provider "
+                    "is unavailable; "
+                    "using console notifier"
+                )
+
+                return ConsoleNotifier()
+
+        logger.info(
+            "System notification platform=%s; "
             "using console notifier",
             system_name,
         )
 
         return ConsoleNotifier()
+
+    @staticmethod
+    def _get_provider_name(
+        provider: NotificationProvider,
+    ) -> str:
+        """返回通知提供者对应的渠道名称。"""
+
+        if isinstance(
+            provider,
+            ConsoleNotifier,
+        ):
+            return "console"
+
+        provider_name = (
+            provider.__class__.__name__
+            .removesuffix("Notifier")
+            .lower()
+        )
+
+        return (
+            provider_name
+            or "system"
+        )

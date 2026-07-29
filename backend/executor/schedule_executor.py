@@ -2,8 +2,8 @@ import threading
 from datetime import datetime, timedelta
 
 from backend.config import logger
-from backend.notification.windows_notifier import (
-    WindowsNotifier,
+from backend.notification.notification_service import (
+    NotificationService,
 )
 from backend.repository.notification_repository import (
     NotificationRepository,
@@ -22,7 +22,7 @@ class ScheduleExecutor:
     def __init__(
         self,
         notification_repository: NotificationRepository | None = None,
-        notifier: WindowsNotifier | None = None,
+        notification_service: NotificationService | None = None,
         web_push_service: WebPushService | None = None,
         schedule_service: ScheduleService | None = None,
         check_interval_seconds: int = 30,
@@ -33,7 +33,7 @@ class ScheduleExecutor:
             notification_repository or NotificationRepository()
         )
 
-        self.notifier = notifier or WindowsNotifier()
+        self.notification_service = notification_service or NotificationService()
 
         self.web_push_service = web_push_service or WebPushService()
 
@@ -155,12 +155,11 @@ class ScheduleExecutor:
         """立即执行一次到期通知检查。"""
 
         now = datetime.now()
-            # 1. 总开关关闭时暂停整个提醒执行流程。
+        # 1. 总开关关闭时暂停整个提醒执行流程。
         if not self.schedule_service.is_enabled():
             if not self._paused_by_settings:
                 logger.info(
-                    "Schedule executor paused: "
-                    "random reminders are disabled"
+                    "Schedule executor paused: " "random reminders are disabled"
                 )
 
                 self._paused_by_settings = True
@@ -168,10 +167,7 @@ class ScheduleExecutor:
             return
 
         if self._paused_by_settings:
-            logger.info(
-                "Schedule executor resumed: "
-                "random reminders are enabled"
-            )
+            logger.info("Schedule executor resumed: " "random reminders are enabled")
 
             self._paused_by_settings = False
 
@@ -181,40 +177,27 @@ class ScheduleExecutor:
         )
 
         # 2. 跳过超过宽限时间的过期提醒。
-        skipped_count = (
-            self.schedule_service
-            .skip_overdue_pending(
-                now=now,
-                grace_minutes=(
-                    self.overdue_grace_minutes
-                ),
-            )
+        skipped_count = self.schedule_service.skip_overdue_pending(
+            now=now,
+            grace_minutes=(self.overdue_grace_minutes),
         )
 
         if skipped_count > 0:
             logger.info(
-                "Overdue reminder schedules skipped: "
-                "count=%s, grace_minutes=%s",
+                "Overdue reminder schedules skipped: " "count=%s, grace_minutes=%s",
                 skipped_count,
                 self.overdue_grace_minutes,
             )
 
         # 3. 查询今天已经到达执行时间、
         #    并且仍处于 pending 状态的通知。
-        schedule_date = (
-            now.date().isoformat()
-        )
+        schedule_date = now.date().isoformat()
 
-        current_time = (
-            now.strftime("%H:%M:%S")
-        )
+        current_time = now.strftime("%H:%M:%S")
 
-        tasks = (
-            self.notification_repository
-            .get_due_pending(
-                schedule_date=schedule_date,
-                current_time=current_time,
-            )
+        tasks = self.notification_repository.get_due_pending(
+            schedule_date=schedule_date,
+            current_time=current_time,
         )
 
         if not tasks:
@@ -228,24 +211,13 @@ class ScheduleExecutor:
         # 4. 逐条发送通知。
         for task in tasks:
             try:
-                delivery_channel = (
-                    self._send_notification(
-                        message=(
-                            task.content_snapshot
-                        ),
-                    )
+                delivery_channel = self._send_notification(
+                    message=(task.content_snapshot),
                 )
 
-                updated = (
-                    self.notification_repository
-                    .mark_sent(
-                        notification_id=(
-                            task.notification_id
-                        ),
-                        schedule_id=(
-                            task.schedule_id
-                        ),
-                    )
+                updated = self.notification_repository.mark_sent(
+                    notification_id=(task.notification_id),
+                    schedule_id=(task.schedule_id),
                 )
 
                 if not updated:
@@ -280,32 +252,24 @@ class ScheduleExecutor:
 
                 try:
                     (
-                        self.notification_repository
-                        .mark_failed(
-                            notification_id=(
-                                task.notification_id
-                            ),
-                            schedule_id=(
-                                task.schedule_id
-                            ),
+                        self.notification_repository.mark_failed(
+                            notification_id=(task.notification_id),
+                            schedule_id=(task.schedule_id),
                         )
                     )
 
                 except Exception:
-                    logger.exception(
-                        "Failed to update notification "
-                        "failure status"
-                    )
+                    logger.exception("Failed to update notification " "failure status")
 
     def _send_notification(
         self,
         message: str,
     ) -> str:
         """
-        优先发送 Web Push。
+            优先发送 Web Push。
 
-        没有有效订阅或全部推送失败时，
-        回退到 Windows 本地通知。
+            Web Push 不可用或全部失败时，
+        通过跨平台 NotificationService 回退。
         """
 
         try:
@@ -350,15 +314,17 @@ class ScheduleExecutor:
                 "using local notification"
             )
 
-        send_result = self.notifier.send(
+        system_channel = self.notification_service.send(
             title="随机提醒器",
             message=message,
         )
 
-        if send_result is False:
-            raise RuntimeError("Windows notifier returned False")
+        logger.info(
+            "System notification delivered: " "channel=%s",
+            system_channel,
+        )
 
-        return "local"
+        return system_channel
 
     def _run(self) -> None:
         """后台线程循环检查到期任务。"""

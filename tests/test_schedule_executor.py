@@ -65,7 +65,7 @@ def test_executor_pauses_and_resumes_with_settings() -> None:
         notification_repository=(
             notification_repository
         ),
-        notifier=object(),
+        notification_service=object(),
         web_push_service=object(),
     )
 
