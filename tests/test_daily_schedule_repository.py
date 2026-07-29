@@ -1,5 +1,8 @@
 from pathlib import Path
 
+import sqlite3
+import pytest
+
 from backend.database import db
 from backend.database.db import get_connection
 from backend.database.init_db import init_database
@@ -192,6 +195,165 @@ def test_delete_replaceable_preserves_history(
             "sent",
             "failed",
         ]
+
+    finally:
+        connection.close()
+
+def test_atomic_replacement_rolls_back_on_insert_failure(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    """新计划插入失败时，旧计划必须恢复。"""
+
+    database_path = (
+        tmp_path
+        / "test_atomic_replacement.db"
+    )
+
+    monkeypatch.setattr(
+        db,
+        "get_db_path",
+        lambda: str(database_path),
+    )
+
+    init_database()
+
+    connection = get_connection()
+
+    try:
+        cursor = connection.cursor()
+
+        # 保留的历史计划。
+        cursor.execute(
+            """
+            INSERT INTO daily_schedules (
+                schedule_date,
+                scheduled_time,
+                reminder_id,
+                content_snapshot,
+                status
+            )
+            VALUES (
+                '2099-01-02',
+                '09:00',
+                NULL,
+                '已发送提醒',
+                'sent'
+            )
+            """
+        )
+
+        sent_schedule_id = cursor.lastrowid
+
+        cursor.execute(
+            """
+            INSERT INTO notifications (
+                schedule_id,
+                status,
+                sent_at
+            )
+            VALUES (
+                ?,
+                'sent',
+                CURRENT_TIMESTAMP
+            )
+            """,
+            (sent_schedule_id,),
+        )
+
+        # 本应被替换的等待计划。
+        cursor.execute(
+            """
+            INSERT INTO daily_schedules (
+                schedule_date,
+                scheduled_time,
+                reminder_id,
+                content_snapshot,
+                status
+            )
+            VALUES (
+                '2099-01-02',
+                '10:00',
+                NULL,
+                '原等待提醒',
+                'pending'
+            )
+            """
+        )
+
+        pending_schedule_id = cursor.lastrowid
+
+        cursor.execute(
+            """
+            INSERT INTO notifications (
+                schedule_id,
+                status
+            )
+            VALUES (?, 'pending')
+            """,
+            (pending_schedule_id,),
+        )
+
+        connection.commit()
+
+    finally:
+        connection.close()
+
+    repository = DailyScheduleRepository()
+
+    # 新计划使用 09:00，与保留的 sent 计划冲突。
+    # 插入必须失败，并且之前删除的 pending 要被恢复。
+    with pytest.raises(
+        sqlite3.IntegrityError
+    ):
+        repository.replace_replaceable_by_date(
+            schedule_date="2099-01-02",
+            items=[
+                (
+                    "09:00",
+                    1,
+                    "发生时间冲突的新提醒",
+                ),
+            ],
+        )
+
+    connection = get_connection()
+
+    try:
+        rows = connection.execute(
+            """
+            SELECT
+                scheduled_time,
+                status
+            FROM daily_schedules
+            WHERE schedule_date = '2099-01-02'
+            ORDER BY scheduled_time
+            """
+        ).fetchall()
+
+        result = [
+            (
+                row["scheduled_time"],
+                row["status"],
+            )
+            for row in rows
+        ]
+
+        assert result == [
+            ("09:00", "sent"),
+            ("10:00", "pending"),
+        ]
+
+        notification_count = (
+            connection.execute(
+                """
+                SELECT COUNT(*)
+                FROM notifications
+                """
+            ).fetchone()[0]
+        )
+
+        assert notification_count == 2
 
     finally:
         connection.close()

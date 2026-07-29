@@ -225,6 +225,76 @@ class DailyScheduleRepository:
             connection.close()
 
         return self.get_by_date(schedule_date)
+    
+    def replace_replaceable_by_date(
+    self,
+    schedule_date: str,
+    items: list[tuple[str, int, str]],
+) -> list[DailySchedule]:
+        """
+        原子替换指定日期中可重新生成的计划。
+
+        保留 sent 和 failed；
+        删除 pending 和 skipped；
+        创建新的 pending 计划。
+
+        删除和创建处于同一个事务中。
+        """
+
+        connection = get_connection()
+
+        try:
+            cursor = connection.cursor()
+
+            cursor.execute(
+                """
+                DELETE FROM daily_schedules
+                WHERE schedule_date = ?
+                AND status IN (
+                    'pending',
+                    'skipped'
+                )
+                """,
+                (schedule_date,),
+            )
+
+            cursor.executemany(
+                """
+                INSERT INTO daily_schedules (
+                    schedule_date,
+                    scheduled_time,
+                    reminder_id,
+                    content_snapshot
+                )
+                VALUES (?, ?, ?, ?)
+                """,
+                [
+                    (
+                        schedule_date,
+                        scheduled_time,
+                        reminder_id,
+                        content,
+                    )
+                    for (
+                        scheduled_time,
+                        reminder_id,
+                        content,
+                    ) in items
+                ],
+            )
+
+            connection.commit()
+
+        except Exception:
+            connection.rollback()
+            raise
+
+        finally:
+            connection.close()
+
+        return self.get_by_date(
+            schedule_date
+        )
 
 
     def update_status(

@@ -33,17 +33,30 @@ class ScheduleService:
         notification_repository: NotificationRepository | None = None,
         strategy: RandomScheduleStrategy | None = None,
     ) -> None:
-        self.schedule_repository = schedule_repository or DailyScheduleRepository()
-
-        self.reminder_repository = reminder_repository or ReminderRepository()
-
-        self.settings_repository = settings_repository or SettingsRepository()
-
-        self.notification_repository = (
-            notification_repository or NotificationRepository()
+        self.schedule_repository = (
+            schedule_repository
+            or DailyScheduleRepository()
         )
 
-        self.strategy = strategy or RandomScheduleStrategy()
+        self.reminder_repository = (
+            reminder_repository
+            or ReminderRepository()
+        )
+
+        self.settings_repository = (
+            settings_repository
+            or SettingsRepository()
+        )
+
+        self.notification_repository = (
+            notification_repository
+            or NotificationRepository()
+        )
+
+        self.strategy = (
+            strategy
+            or RandomScheduleStrategy()
+        )
 
     def get_today_schedule(
         self,
@@ -52,12 +65,16 @@ class ScheduleService:
 
         today = date.today().isoformat()
 
-        return self.schedule_repository.get_by_date(today)
+        return self.schedule_repository.get_by_date(
+            today
+        )
 
     def is_enabled(self) -> bool:
         """返回随机提醒总开关是否开启。"""
 
-        settings = self.settings_repository.get()
+        settings = (
+            self.settings_repository.get()
+        )
 
         return settings.enabled
 
@@ -69,14 +86,29 @@ class ScheduleService:
         """跳过超过允许延迟时间的 pending 计划。"""
 
         if grace_minutes < 0:
-            raise ValueError("允许延迟分钟数不能小于 0")
+            raise ValueError(
+                "允许延迟分钟数不能小于 0"
+            )
 
-        current_datetime = now or datetime.now()
+        current_datetime = (
+            now
+            or datetime.now()
+        )
 
-        cutoff_datetime = current_datetime - timedelta(minutes=grace_minutes)
+        cutoff_datetime = (
+            current_datetime
+            - timedelta(
+                minutes=grace_minutes,
+            )
+        )
 
-        return self.schedule_repository.skip_overdue_pending(
-            cutoff_datetime.strftime("%Y-%m-%d %H:%M:%S")
+        return (
+            self.schedule_repository
+            .skip_overdue_pending(
+                cutoff_datetime.strftime(
+                    "%Y-%m-%d %H:%M:%S"
+                )
+            )
         )
 
     def generate_today_schedule(
@@ -90,87 +122,142 @@ class ScheduleService:
         强制重新生成时：
         - 保留 sent 和 failed 计划；
         - 删除 pending 和 skipped 计划；
-        - 只补充当天剩余的提醒数量。
+        - 只补充当天剩余的提醒数量；
+        - 删除和创建通过同一个事务完成。
         """
 
-        current_datetime = now or datetime.now()
-        today = current_datetime.date().isoformat()
+        current_datetime = (
+            now
+            or datetime.now()
+        )
 
-        existing_schedules = self.schedule_repository.get_by_date(today)
+        today = (
+            current_datetime
+            .date()
+            .isoformat()
+        )
+
+        existing_schedules = (
+            self.schedule_repository
+            .get_by_date(
+                today
+            )
+        )
 
         if existing_schedules and not force:
-            self._ensure_notification_records(existing_schedules)
+            self._ensure_notification_records(
+                existing_schedules
+            )
 
             return existing_schedules
 
-        settings = self.settings_repository.get()
+        settings = (
+            self.settings_repository.get()
+        )
 
         if not settings.enabled:
-            raise ValueError("随机提醒总开关尚未开启")
+            raise ValueError(
+                "随机提醒总开关尚未开启"
+            )
 
-        completed_count = sum(
-            1
+        completed_schedules = [
+            schedule
             for schedule in existing_schedules
-            if schedule.status
-            in {
+            if schedule.status in {
                 "sent",
                 "failed",
             }
+        ]
+
+        completed_count = len(
+            completed_schedules
         )
+
         reserved_times = {
             schedule.scheduled_time
-            for schedule in existing_schedules
-            if schedule.status
-            in {
-                "sent",
-                "failed",
-            }
+            for schedule in completed_schedules
         }
 
-        generation_count = settings.times_per_day
+        generation_count = (
+            settings.times_per_day
+        )
 
         if force:
             generation_count = max(
-                settings.times_per_day - completed_count,
+                settings.times_per_day
+                - completed_count,
                 0,
             )
 
-        # 当天已完成的提醒数量已经达到设置数量时，
-        # 不再生成新的计划，只删除可替换的旧计划。
+        # 今天已执行的数量达到每日设置数量，
+        # 不再生成新计划，只清除 pending/skipped。
         if force and generation_count == 0:
-            (self.schedule_repository.delete_replaceable_by_date(today))
+            (
+                self.schedule_repository
+                .delete_replaceable_by_date(
+                    today
+                )
+            )
 
-            remaining_schedules = self.schedule_repository.get_by_date(today)
+            remaining_schedules = (
+                self.schedule_repository
+                .get_by_date(
+                    today
+                )
+            )
 
-            self._ensure_notification_records(remaining_schedules)
+            self._ensure_notification_records(
+                remaining_schedules
+            )
 
             return remaining_schedules
 
-        reminders = self.reminder_repository.get_enabled()
-
-        if not reminders:
-            raise ValueError("没有可用于生成计划的启用提醒")
-
-        configured_start_time, end_time = self._resolve_time_range(
-            all_day=settings.all_day,
-            start_time=settings.start_time,
-            end_time=settings.end_time,
+        reminders = (
+            self.reminder_repository
+            .get_enabled()
         )
 
-        start_time = self._resolve_future_start_time(
-            start_time=configured_start_time,
-            end_time=end_time,
-            now=current_datetime,
-            lead_minutes=(self.MINIMUM_LEAD_MINUTES),
+        if not reminders:
+            raise ValueError(
+                "没有可用于生成计划的启用提醒"
+            )
+
+        configured_start_time, end_time = (
+            self._resolve_time_range(
+                all_day=settings.all_day,
+                start_time=settings.start_time,
+                end_time=settings.end_time,
+            )
+        )
+
+        start_time = (
+            self._resolve_future_start_time(
+                start_time=(
+                    configured_start_time
+                ),
+                end_time=end_time,
+                now=current_datetime,
+                lead_minutes=(
+                    self.MINIMUM_LEAD_MINUTES
+                ),
+            )
         )
 
         try:
-            generated_times = self.strategy.generate_times(
-                start_time=start_time,
-                end_time=end_time,
-                times_per_day=(generation_count),
-                minimum_interval=(settings.minimum_interval),
-                excluded_times=(reserved_times),
+            generated_times = (
+                self.strategy.generate_times(
+                    start_time=start_time,
+                    end_time=end_time,
+                    times_per_day=(
+                        generation_count
+                    ),
+                    minimum_interval=(
+                        settings.minimum_interval
+                    ),
+                    excluded_times=(
+                        reserved_times
+                    ),
+                )
             )
 
         except ValueError as error:
@@ -180,39 +267,56 @@ class ScheduleService:
                 "条符合间隔要求的提醒"
             ) from error
 
-        selected_reminders = self._select_reminders(
-            reminders=reminders,
-            count=len(generated_times),
+        selected_reminders = (
+            self._select_reminders(
+                reminders=reminders,
+                count=len(
+                    generated_times
+                ),
+            )
         )
 
-        # 必须先成功生成新时间，再删除旧计划。
-        # 如果生成失败，原计划不会被清空。
-        if force:
-            (self.schedule_repository.delete_replaceable_by_date(today))
-
+        # 必须先创建 items，
+        # 然后才能传给 Repository。
         items = [
             (
                 scheduled_time,
                 reminder.id,
                 reminder.content,
             )
-            for scheduled_time, reminder in zip(
+            for scheduled_time, reminder
+            in zip(
                 generated_times,
                 selected_reminders,
                 strict=True,
             )
         ]
 
-        new_schedules = self.schedule_repository.create_many(
-            schedule_date=today,
-            items=items,
+        if force:
+            # 删除 pending/skipped 和插入新计划
+            # 在同一个数据库事务中完成。
+            schedules = (
+                self.schedule_repository
+                .replace_replaceable_by_date(
+                    schedule_date=today,
+                    items=items,
+                )
+            )
+
+        else:
+            schedules = (
+                self.schedule_repository
+                .create_many(
+                    schedule_date=today,
+                    items=items,
+                )
+            )
+
+        self._ensure_notification_records(
+            schedules
         )
 
-        self._ensure_notification_records(new_schedules)
-
-        # 强制重新生成时，需要同时返回：
-        # 已保留的 sent/failed 计划和新建的 pending 计划。
-        return self.schedule_repository.get_by_date(today)
+        return schedules
 
     def _ensure_notification_records(
         self,
@@ -220,9 +324,14 @@ class ScheduleService:
     ) -> None:
         """确保每条计划都有对应的通知记录。"""
 
-        schedule_ids = [schedule.id for schedule in schedules]
+        schedule_ids = [
+            schedule.id
+            for schedule in schedules
+        ]
 
-        self.notification_repository.create_many_for_schedules(schedule_ids)
+        self.notification_repository.create_many_for_schedules(
+            schedule_ids
+        )
 
     @staticmethod
     def _resolve_time_range(
@@ -233,12 +342,23 @@ class ScheduleService:
         """根据设置确定实际时间范围。"""
 
         if all_day:
-            return "00:00", "23:59"
+            return (
+                "00:00",
+                "23:59",
+            )
 
-        if start_time is None or end_time is None:
-            raise ValueError("提醒时间范围不完整")
+        if (
+            start_time is None
+            or end_time is None
+        ):
+            raise ValueError(
+                "提醒时间范围不完整"
+            )
 
-        return start_time, end_time
+        return (
+            start_time,
+            end_time,
+        )
 
     @classmethod
     def _resolve_future_start_time(
@@ -271,13 +391,22 @@ class ScheduleService:
         )
 
         if configured_end < configured_start:
-            raise ValueError("提醒结束时间必须晚于开始时间")
+            raise ValueError(
+                "提醒结束时间必须晚于开始时间"
+            )
 
-        earliest_future_time = now + timedelta(
-            minutes=lead_minutes,
+        earliest_future_time = (
+            now
+            + timedelta(
+                minutes=lead_minutes,
+            )
         )
 
-        earliest_future_time = cls._ceil_to_minute(earliest_future_time)
+        earliest_future_time = (
+            cls._ceil_to_minute(
+                earliest_future_time
+            )
+        )
 
         effective_start = max(
             configured_start,
@@ -285,9 +414,14 @@ class ScheduleService:
         )
 
         if effective_start > configured_end:
-            raise ValueError("今天的提醒时间范围已经结束，" "无法生成新的提醒计划")
+            raise ValueError(
+                "今天的提醒时间范围已经结束，"
+                "无法生成新的提醒计划"
+            )
 
-        return effective_start.strftime("%H:%M")
+        return effective_start.strftime(
+            "%H:%M"
+        )
 
     @staticmethod
     def _ceil_to_minute(
@@ -300,8 +434,13 @@ class ScheduleService:
             microsecond=0,
         )
 
-        if value.second or value.microsecond:
-            rounded += timedelta(minutes=1)
+        if (
+            value.second
+            or value.microsecond
+        ):
+            rounded += timedelta(
+                minutes=1
+            )
 
         return rounded
 
@@ -318,4 +457,9 @@ class ScheduleService:
                 count,
             )
 
-        return [random.choice(reminders) for _ in range(count)]
+        return [
+            random.choice(
+                reminders
+            )
+            for _ in range(count)
+        ]
