@@ -52,6 +52,8 @@ class ScheduleExecutor:
 
         self._last_schedule_refresh_at: datetime | None = None
 
+        self._paused_by_settings = False
+
         self._stop_event = threading.Event()
 
         self._thread: threading.Thread | None = None
@@ -153,6 +155,25 @@ class ScheduleExecutor:
         """立即执行一次到期通知检查。"""
 
         now = datetime.now()
+            # 1. 总开关关闭时暂停整个提醒执行流程。
+        if not self.schedule_service.is_enabled():
+            if not self._paused_by_settings:
+                logger.info(
+                    "Schedule executor paused: "
+                    "random reminders are disabled"
+                )
+
+                self._paused_by_settings = True
+
+            return
+
+        if self._paused_by_settings:
+            logger.info(
+                "Schedule executor resumed: "
+                "random reminders are enabled"
+            )
+
+            self._paused_by_settings = False
 
         # 1. 确保今天有提醒计划。
         self.ensure_today_schedule(

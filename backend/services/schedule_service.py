@@ -69,6 +69,13 @@ class ScheduleService:
             today
         )
     
+    def is_enabled(self) -> bool:
+        """返回随机提醒总开关是否开启。"""
+
+        settings = self.settings_repository.get()
+
+        return settings.enabled
+    
     def skip_overdue_pending(
     self,
     now: datetime | None = None,
