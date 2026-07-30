@@ -16,9 +16,19 @@ permissions:
 
 jobs:
   test:
-    name: Python tests
-    runs-on: windows-latest
+    name: Python tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 15
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - windows-latest
+          - ubuntu-latest
+
+        python-version:
+          - "3.14"
 
     steps:
       - name: Checkout repository
@@ -27,7 +37,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.14"
+          python-version: ${{ matrix.python-version }}
           cache: pip
           cache-dependency-path: |
             requirements.txt
