@@ -21,3 +21,8 @@ Thumbs.db
 
 # Web Push VAPID keys
 /secrets/
+
+# Environment variables
+.env
+.env.*
+!.env.example
