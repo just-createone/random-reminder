@@ -50,6 +50,53 @@ def _read_bool(
         "on/off 或 1/0"
     )
 
+def _read_int(
+    variable_name: str,
+    default: int,
+    *,
+    minimum: int | None = None,
+    maximum: int | None = None,
+) -> int:
+    """读取整数类型环境变量。"""
+
+    raw_value = os.getenv(
+        variable_name
+    )
+
+    if raw_value is None:
+        value = default
+
+    else:
+        try:
+            value = int(
+                raw_value.strip()
+            )
+
+        except ValueError as exc:
+            raise ValueError(
+                f"环境变量 {variable_name} "
+                "必须是整数"
+            ) from exc
+
+    if (
+        minimum is not None
+        and value < minimum
+    ):
+        raise ValueError(
+            f"环境变量 {variable_name} "
+            f"不能小于 {minimum}"
+        )
+
+    if (
+        maximum is not None
+        and value > maximum
+    ):
+        raise ValueError(
+            f"环境变量 {variable_name} "
+            f"不能大于 {maximum}"
+        )
+
+    return value
 
 def _resolve_path(
     configured_value: str | None,
@@ -90,6 +137,27 @@ DEBUG = _read_bool(
     default=(
         ENVIRONMENT != "production"
     ),
+)
+
+DEFAULT_HOST = (
+    "0.0.0.0"
+    if ENVIRONMENT == "production"
+    else "127.0.0.1"
+)
+
+APP_HOST = (
+    os.getenv(
+        "RANDOM_REMINDER_HOST",
+        DEFAULT_HOST,
+    ).strip()
+    or DEFAULT_HOST
+)
+
+APP_PORT = _read_int(
+    "RANDOM_REMINDER_PORT",
+    default=8000,
+    minimum=1,
+    maximum=65535,
 )
 
 DATABASE_PATH = _resolve_path(
