@@ -4,7 +4,7 @@ from pathlib import Path
 
 
 PROJECT_NAME = "random-reminder"
-VERSION = "0.1.0"
+VERSION = "0.1.1"
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
