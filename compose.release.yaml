@@ -1,6 +1,6 @@
 services:
   app:
-    image: ghcr.io/just-createone/random-reminder:0.1.0
+    image: ${RANDOM_REMINDER_IMAGE}
 
     container_name: random-reminder-release
 
@@ -11,15 +11,15 @@ services:
       RANDOM_REMINDER_DEBUG: "false"
       RANDOM_REMINDER_HOST: 0.0.0.0
       RANDOM_REMINDER_PORT: "8000"
-      RANDOM_REMINDER_LOG_LEVEL: INFO
+      RANDOM_REMINDER_LOG_LEVEL: ${RANDOM_REMINDER_LOG_LEVEL}
 
       RANDOM_REMINDER_DB_PATH: /app/data/random_reminder.db
       RANDOM_REMINDER_VAPID_DIR: /app/secrets/vapid
 
-      VAPID_SUBJECT: mailto:admin@example.com
+      VAPID_SUBJECT: ${VAPID_SUBJECT}
 
     ports:
-      - "8000:8000"
+      - "${RANDOM_REMINDER_HOST_PORT}:8000"
 
     volumes:
       - ./data:/app/data

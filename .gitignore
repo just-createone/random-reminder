@@ -85,6 +85,7 @@ Desktop.ini
 .env
 .env.*
 !.env.example
+!.env.release.example
 
 # =========================
 # Docker runtime data
