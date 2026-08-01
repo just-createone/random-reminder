@@ -92,3 +92,7 @@ Desktop.ini
 # =========================
 /data/*
 !/data/.gitkeep
+
+# Database backups
+/backups/*
+!/backups/.gitkeep

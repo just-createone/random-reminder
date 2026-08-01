@@ -26,3 +26,5 @@ random_reminder.db
 Dockerfile*
 compose*.yaml
 compose*.yml
+
+backups

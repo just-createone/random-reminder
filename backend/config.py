@@ -167,6 +167,13 @@ DATABASE_PATH = _resolve_path(
     BASE_DIR / "random_reminder.db",
 )
 
+BACKUP_DIRECTORY = _resolve_path(
+    os.getenv(
+        "RANDOM_REMINDER_BACKUP_DIR"
+    ),
+    BASE_DIR / "backups",
+)
+
 VAPID_DIRECTORY = _resolve_path(
     os.getenv(
         "RANDOM_REMINDER_VAPID_DIR"

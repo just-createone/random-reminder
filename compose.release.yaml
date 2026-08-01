@@ -14,6 +14,7 @@ services:
       RANDOM_REMINDER_LOG_LEVEL: ${RANDOM_REMINDER_LOG_LEVEL}
 
       RANDOM_REMINDER_DB_PATH: /app/data/random_reminder.db
+      RANDOM_REMINDER_BACKUP_DIR: ${RANDOM_REMINDER_BACKUP_DIR}
       RANDOM_REMINDER_VAPID_DIR: /app/secrets/vapid
 
       VAPID_SUBJECT: ${VAPID_SUBJECT}
@@ -23,6 +24,7 @@ services:
 
     volumes:
       - ./data:/app/data
+      - ./backups:/app/backups
       - ./secrets/vapid:/app/secrets/vapid:ro
 
     healthcheck:
