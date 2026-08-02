@@ -902,6 +902,7 @@ v0.1.3
 
 ## 项目文档
 
+- [版本变更记录](CHANGELOG.md)
 - [正式部署、升级和回滚指南](docs/DEPLOYMENT.md)
 - [故障排查指南](docs/TROUBLESHOOTING.md)
 - [MVP 验收清单](docs/ACCEPTANCE.md)
