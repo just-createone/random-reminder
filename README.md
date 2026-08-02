@@ -905,6 +905,7 @@ v0.1.3
 - [正式部署、升级和回滚指南](docs/DEPLOYMENT.md)
 - [故障排查指南](docs/TROUBLESHOOTING.md)
 - [MVP 验收清单](docs/ACCEPTANCE.md)
+- [产品路线与商业化规划](docs/PRODUCT_ROADMAP.md)
 
 ---
 
