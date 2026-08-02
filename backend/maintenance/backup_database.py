@@ -9,6 +9,10 @@ from backend.config import (
     logger,
 )
 
+from backend.maintenance.cleanup_backups import (
+    cleanup_backups,
+)
+
 
 def backup_database(
     source_path: str | Path | None = None,
@@ -107,20 +111,29 @@ def backup_database(
 
 
 def main() -> None:
-    """执行一次数据库备份。"""
+    """执行备份，并自动清理过期文件。"""
 
     try:
         destination = backup_database()
 
+        removed_files = (
+            cleanup_backups()
+        )
+
     except Exception:
         logger.exception(
-            "Database backup failed"
+            "Database backup or cleanup failed"
         )
         raise SystemExit(1)
 
     print(
         "Database backup created: "
         f"{destination}"
+    )
+
+    print(
+        "Expired backups removed: "
+        f"{len(removed_files)}"
     )
 
 

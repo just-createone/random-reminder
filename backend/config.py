@@ -174,6 +174,25 @@ BACKUP_DIRECTORY = _resolve_path(
     BASE_DIR / "backups",
 )
 
+BACKUP_RETENTION_COUNT = _read_int(
+    "RANDOM_REMINDER_BACKUP_RETENTION_COUNT",
+    default=20,
+    minimum=1,
+    maximum=1000,
+)
+
+BACKUP_KEEP_LATEST = _read_int(
+    "RANDOM_REMINDER_BACKUP_KEEP_LATEST",
+    default=30,
+    minimum=1,
+)
+
+BACKUP_MAX_AGE_DAYS = _read_int(
+    "RANDOM_REMINDER_BACKUP_MAX_AGE_DAYS",
+    default=90,
+    minimum=1,
+)
+
 VAPID_DIRECTORY = _resolve_path(
     os.getenv(
         "RANDOM_REMINDER_VAPID_DIR"

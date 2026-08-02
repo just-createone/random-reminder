@@ -17,6 +17,10 @@ services:
       
       RANDOM_REMINDER_BACKUP_DIR: /app/backups
       RANDOM_REMINDER_DB_PATH: /app/data/random_reminder.db
+
+      RANDOM_REMINDER_BACKUP_KEEP_LATEST: "30"
+      RANDOM_REMINDER_BACKUP_MAX_AGE_DAYS: "90"
+      
       RANDOM_REMINDER_VAPID_DIR: /app/secrets/vapid
 
       VAPID_SUBJECT: mailto:admin@example.com
