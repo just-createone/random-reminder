@@ -383,9 +383,14 @@ git diff --check
 检查敏感信息：
 
 ```powershell
-Select-String `
-    -Path README.md,CHANGELOG.md,CONTRIBUTING.md,docs\*.md `
-    -Pattern "BEGIN PRIVATE KEY|366619839|366619839@qq\.com"
+$privateEmail = Read-Host "输入需要检查的私人邮箱"
+$privateIdentifier = Read-Host "输入需要检查的私人编号"
+$privateKeyToken = "private" + "_key"
+
+git grep -n -I -F -e $privateEmail
+git grep -n -I -F -e $privateIdentifier
+git grep -n -I -F -e $privateKeyToken
+git grep -n -I -E -e '-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----'
 ```
 
 文档中不要包含：

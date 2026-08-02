@@ -928,9 +928,14 @@ git check-ignore -v .\secrets\vapid\*
 搜索敏感信息：
 
 ```powershell
-Select-String `
-    -Path README.md,docs\*.md `
-    -Pattern "qq\.com|BEGIN PRIVATE KEY|private_key"
+$privateEmail = Read-Host "输入需要检查的私人邮箱"
+$privateIdentifier = Read-Host "输入需要检查的私人编号"
+$privateKeyToken = "private" + "_key"
+
+git grep -n -I -F -e $privateEmail
+git grep -n -I -F -e $privateIdentifier
+git grep -n -I -F -e $privateKeyToken
+git grep -n -I -E -e '-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----'
 ```
 
 README 和文档中的邮箱示例应使用：
