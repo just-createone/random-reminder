@@ -366,21 +366,21 @@ docker compose `
 
 常用环境变量如下：
 
-| 变量 | 作用 | 示例 |
-|---|---|---|
-| `RANDOM_REMINDER_ENV` | 运行环境 | `production` |
-| `RANDOM_REMINDER_DEBUG` | 是否启用调试模式 | `false` |
-| `RANDOM_REMINDER_HOST` | 服务监听地址 | `0.0.0.0` |
-| `RANDOM_REMINDER_PORT` | 服务监听端口 | `8000` |
-| `RANDOM_REMINDER_LOG_LEVEL` | 日志级别 | `INFO` |
-| `RANDOM_REMINDER_DB_PATH` | SQLite 数据库路径 | `/app/data/random_reminder.db` |
-| `RANDOM_REMINDER_BACKUP_DIR` | 数据库备份目录 | `/app/backups` |
-| `RANDOM_REMINDER_BACKUP_KEEP_LATEST` | 始终保留的最新备份数量 | `30` |
-| `RANDOM_REMINDER_BACKUP_MAX_AGE_DAYS` | 备份最大保存天数 | `90` |
-| `RANDOM_REMINDER_VAPID_DIR` | VAPID 密钥目录 | `/app/secrets/vapid` |
-| `VAPID_SUBJECT` | Web Push 联系信息 | `mailto:your-email@example.com` |
-| `RANDOM_REMINDER_IMAGE` | 正式 Docker 镜像 | `ghcr.io/just-createone/random-reminder:0.1.3` |
-| `RANDOM_REMINDER_HOST_PORT` | 宿主机端口 | `8000` |
+| 变量                                  | 作用                   | 示例                                           |
+| ------------------------------------- | ---------------------- | ---------------------------------------------- |
+| `RANDOM_REMINDER_ENV`                 | 运行环境               | `production`                                   |
+| `RANDOM_REMINDER_DEBUG`               | 是否启用调试模式       | `false`                                        |
+| `RANDOM_REMINDER_HOST`                | 服务监听地址           | `0.0.0.0`                                      |
+| `RANDOM_REMINDER_PORT`                | 服务监听端口           | `8000`                                         |
+| `RANDOM_REMINDER_LOG_LEVEL`           | 日志级别               | `INFO`                                         |
+| `RANDOM_REMINDER_DB_PATH`             | SQLite 数据库路径      | `/app/data/random_reminder.db`                 |
+| `RANDOM_REMINDER_BACKUP_DIR`          | 数据库备份目录         | `/app/backups`                                 |
+| `RANDOM_REMINDER_BACKUP_KEEP_LATEST`  | 始终保留的最新备份数量 | `30`                                           |
+| `RANDOM_REMINDER_BACKUP_MAX_AGE_DAYS` | 备份最大保存天数       | `90`                                           |
+| `RANDOM_REMINDER_VAPID_DIR`           | VAPID 密钥目录         | `/app/secrets/vapid`                           |
+| `VAPID_SUBJECT`                       | Web Push 联系信息      | `mailto:your-email@example.com`                |
+| `RANDOM_REMINDER_IMAGE`               | 正式 Docker 镜像       | `ghcr.io/just-createone/random-reminder:0.1.3` |
+| `RANDOM_REMINDER_HOST_PORT`           | 宿主机端口             | `8000`                                         |
 
 环境变量示例文件：
 
@@ -668,10 +668,10 @@ secrets/vapid/
 
 各目录作用：
 
-| 目录 | 作用 |
-|---|---|
-| `data/` | 保存 SQLite 数据库 |
-| `backups/` | 保存数据库备份 |
+| 目录             | 作用               |
+| ---------------- | ------------------ |
+| `data/`          | 保存 SQLite 数据库 |
+| `backups/`       | 保存数据库备份     |
 | `secrets/vapid/` | 保存 Web Push 密钥 |
 
 Docker 容器被删除或重新创建后，这些宿主机目录中的数据仍然保留。
@@ -903,5 +903,6 @@ v0.1.3
 ## 项目文档
 
 - [正式部署、升级和回滚指南](docs/DEPLOYMENT.md)
+- [故障排查指南](docs/TROUBLESHOOTING.md)
 
 ---
