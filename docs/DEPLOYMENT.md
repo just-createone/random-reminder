@@ -2,7 +2,7 @@
 
 本文档记录随机提醒器的正式部署、版本升级、版本回滚、数据库备份和数据库恢复流程。
 
-当前正式版本：`v0.1.3`
+当前正式版本：`v0.1.4`
 
 ---
 
@@ -25,7 +25,7 @@ ghcr.io/just-createone/random-reminder
 当前版本镜像：
 
 ```text
-ghcr.io/just-createone/random-reminder:0.1.3
+ghcr.io/just-createone/random-reminder:0.1.4
 ```
 
 ---
@@ -58,7 +58,7 @@ code .env.release
 示例配置：
 
 ```dotenv
-RANDOM_REMINDER_IMAGE=ghcr.io/just-createone/random-reminder:0.1.3
+RANDOM_REMINDER_IMAGE=ghcr.io/just-createone/random-reminder:0.1.4
 RANDOM_REMINDER_HOST_PORT=8000
 RANDOM_REMINDER_LOG_LEVEL=INFO
 
@@ -94,7 +94,36 @@ New-Item -ItemType Directory -Force .\secrets\vapid |
 
 VAPID 私钥不能提交到公开仓库。
 
-### 4. 检查 Compose 配置
+### 4. 生成 VAPID 密钥
+
+`v0.1.4` 正式镜像内置 VAPID 密钥生成脚本。首次部署且 `secrets/vapid/` 为空时执行：
+
+```powershell
+$vapidHostPath = (
+    Resolve-Path .\secrets\vapid
+).Path
+
+docker run `
+    --rm `
+    --pull never `
+    --mount "type=bind,source=$vapidHostPath,target=/app/secrets/vapid" `
+    ghcr.io/just-createone/random-reminder:0.1.4 `
+    python /app/scripts/generate_vapid_keys.py
+```
+
+正常会生成：
+
+```text
+private_key.pem
+public_key.pem
+application_server_key.txt
+```
+
+如果这些文件已经存在，脚本会拒绝覆盖。不要删除或重新生成正在使用的 VAPID 密钥，否则已有浏览器 Push 订阅可能失效。
+
+正式应用容器通过 `compose.release.yaml` 将该目录只读挂载到 `/app/secrets/vapid`。
+
+### 5. 检查 Compose 配置
 
 ```powershell
 docker compose `
@@ -112,7 +141,7 @@ docker compose `
 - VAPID 目录为 `/app/secrets/vapid`
 - 备份保留配置正确
 
-### 5. 拉取正式镜像
+### 6. 拉取正式镜像
 
 ```powershell
 docker compose `
@@ -121,7 +150,7 @@ docker compose `
     pull
 ```
 
-### 6. 启动正式容器
+### 7. 启动正式容器
 
 ```powershell
 docker compose `
@@ -130,7 +159,7 @@ docker compose `
     up -d
 ```
 
-### 7. 查看容器状态
+### 8. 查看容器状态
 
 ```powershell
 docker compose `
@@ -146,14 +175,14 @@ Up
 healthy
 ```
 
-### 8. 检查健康接口
+### 9. 检查健康接口
 
 ```powershell
 Invoke-RestMethod `
     http://127.0.0.1:8000/health
 ```
 
-### 9. 打开应用
+### 10. 打开应用
 
 ```text
 http://127.0.0.1:8000/
@@ -164,6 +193,22 @@ API 文档：
 ```text
 http://127.0.0.1:8000/docs
 ```
+
+`v0.1.4` 正式镜像以非 root 用户运行。可检查：
+
+```powershell
+docker exec `
+    random-reminder-release `
+    id -u
+```
+
+预期：
+
+```text
+10001
+```
+
+production 环境的 `/api/push/test-send` 不会出现在 OpenAPI 文档中，直接访问该测试接口也应返回 `404`。
 
 ---
 
@@ -201,7 +246,7 @@ Ctrl + C
 
 ## 四、正式版本升级
 
-以下示例表示从旧版本升级到 `0.1.3`。
+以下示例表示从旧版本升级到 `0.1.4`。
 
 ### 1. 升级前创建数据库备份
 
@@ -235,7 +280,7 @@ code .env.release
 修改：
 
 ```dotenv
-RANDOM_REMINDER_IMAGE=ghcr.io/just-createone/random-reminder:0.1.3
+RANDOM_REMINDER_IMAGE=ghcr.io/just-createone/random-reminder:0.1.4
 ```
 
 ### 3. 检查配置
@@ -422,6 +467,8 @@ docker compose `
 ```
 
 `--dry-run` 不会删除文件。
+
+当前策略会始终保护最新 `RANDOM_REMINDER_BACKUP_KEEP_LATEST` 份备份；只有保护范围之外、且超过 `RANDOM_REMINDER_BACKUP_MAX_AGE_DAYS` 的标准命名备份才会被删除。
 
 ---
 

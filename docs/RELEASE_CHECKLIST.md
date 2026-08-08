@@ -2,7 +2,7 @@
 
 本文档用于规范随机提醒器每次正式版本发布流程，避免遗漏测试、备份、版本号、镜像和部署验证。
 
-当前正式版本：`v0.1.3`
+当前正式版本：`v0.1.4`
 
 ---
 
@@ -21,8 +21,8 @@
 
 | 类型     | 示例            | 适用情况             |
 | -------- | --------------- | -------------------- |
-| 修复版本 | `0.1.3 → 0.1.4` | 修复问题、小幅优化   |
-| 功能版本 | `0.1.3 → 0.2.0` | 增加一组新功能       |
+| 修复版本 | `0.1.4 → 0.1.5` | 修复问题、小幅优化   |
+| 功能版本 | `0.1.4 → 0.2.0` | 增加一组新功能       |
 | 正式版本 | `0.x.x → 1.0.0` | 达到正式商业发布标准 |
 
 ---
@@ -103,6 +103,8 @@ git grep -n -I -E -e '-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----'
 - [ ] 文档中没有真实邮箱
 - [ ] 文档中没有密钥内容
 - [ ] 日志文件未被提交
+- [ ] Release 镜像本身不包含 `.env.release`、数据库或 VAPID 私钥
+- [ ] 运行日志未输出 VAPID 私钥、Push auth key 或 Authorization Header
 
 ---
 
@@ -220,7 +222,7 @@ RANDOM_REMINDER_IMAGE=ghcr.io/just-createone/random-reminder:0.1.4
 ```powershell
 Select-String `
     -Path README.md,backend\*.py,.env.release.example,docs\*.md `
-    -Pattern "0\.1\.3"
+    -Pattern "0\.1\.4"
 ```
 
 根据发布目标判断哪些位置需要更新。
@@ -297,6 +299,10 @@ Invoke-RestMethod http://127.0.0.1:8000/health
 - [ ] 数据重启后仍然存在
 - [ ] 数据库备份可以创建
 - [ ] 日志没有严重错误
+- [ ] 容器运行 UID 不是 `0`
+- [ ] `/app/data` 和 `/app/backups` 在非 root 用户下可写
+- [ ] `/app/secrets/vapid` 正式挂载保持只读
+- [ ] production OpenAPI 不显示 `/api/push/test-send`
 
 ---
 
@@ -477,6 +483,8 @@ ghcr.io/just-createone/random-reminder:x.y.z
 - [ ] `latest` 已更新
 - [ ] 镜像支持 AMD64
 - [ ] 镜像支持 ARM64
+- [ ] `docker buildx imagetools inspect` 同时显示 `linux/amd64` 和 `linux/arm64`
+- [ ] 镜像内包含 `/app/scripts/generate_vapid_keys.py`
 
 ---
 

@@ -254,6 +254,7 @@ def get_vapid_public_key(
 @router.post(
     "/test-send",
     response_model=WebPushTestResponse,
+    include_in_schema=DEBUG,
 )
 def send_test_web_push(
     request: WebPushTestRequest,

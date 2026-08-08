@@ -4,7 +4,7 @@
 
 用户可以维护自己的提醒文本，系统每天随机生成提醒计划，并在指定时间发送浏览器推送或本地系统通知。
 
-当前版本：`v0.1.3`
+当前版本：`v0.1.4`
 
 ---
 
@@ -22,7 +22,7 @@
 - SQLite 数据持久化
 - 数据库备份
 - 数据库恢复
-- 旧备份自动清理
+- 旧备份自动清理（保护最新备份，并按最大保存天数清理保护范围之外的旧备份）
 - Docker 和 Docker Compose 部署
 - AMD64 和 ARM64 镜像支持
 - GitHub Actions 自动测试和镜像发布
@@ -81,6 +81,7 @@ random-reminder/
 │  ├─ settings.html         # 设置页面
 │  ├─ manifest.json         # PWA 配置
 │  └─ service-worker.js     # Service Worker
+├─ scripts/                 # 部署与维护辅助脚本
 ├─ tests/                   # 自动化测试
 ├─ data/                    # SQLite 数据库
 ├─ backups/                 # 数据库备份
@@ -243,7 +244,7 @@ ghcr.io/just-createone/random-reminder
 当前版本镜像：
 
 ```text
-ghcr.io/just-createone/random-reminder:0.1.3
+ghcr.io/just-createone/random-reminder:0.1.4
 ```
 
 ### 1. 创建正式环境配置
@@ -280,7 +281,38 @@ Web Push 使用的 VAPID 密钥应存放在：
 secrets/vapid/
 ```
 
-正式容器会将该目录只读挂载到：
+`v0.1.4` 正式镜像内已经包含：
+
+```text
+/app/scripts/generate_vapid_keys.py
+```
+
+首次部署时，先确保宿主机目录已经创建，然后使用正式镜像生成密钥：
+
+```powershell
+$vapidHostPath = (
+    Resolve-Path .\secrets\vapid
+).Path
+
+docker run `
+    --rm `
+    --pull never `
+    --mount "type=bind,source=$vapidHostPath,target=/app/secrets/vapid" `
+    ghcr.io/just-createone/random-reminder:0.1.4 `
+    python /app/scripts/generate_vapid_keys.py
+```
+
+正常情况下会生成三个文件：
+
+```text
+private_key.pem
+public_key.pem
+application_server_key.txt
+```
+
+生成脚本会拒绝覆盖已经存在的 VAPID 密钥，避免已有 Web Push 订阅因密钥变化失效。
+
+正式应用容器会将该目录只读挂载到：
 
 ```text
 /app/secrets/vapid
@@ -379,7 +411,7 @@ docker compose `
 | `RANDOM_REMINDER_BACKUP_MAX_AGE_DAYS` | 备份最大保存天数       | `90`                                           |
 | `RANDOM_REMINDER_VAPID_DIR`           | VAPID 密钥目录         | `/app/secrets/vapid`                           |
 | `VAPID_SUBJECT`                       | Web Push 联系信息      | `mailto:your-email@example.com`                |
-| `RANDOM_REMINDER_IMAGE`               | 正式 Docker 镜像       | `ghcr.io/just-createone/random-reminder:0.1.3` |
+| `RANDOM_REMINDER_IMAGE`               | 正式 Docker 镜像       | `ghcr.io/just-createone/random-reminder:0.1.4` |
 | `RANDOM_REMINDER_HOST_PORT`           | 宿主机端口             | `8000`                                         |
 
 环境变量示例文件：
@@ -565,6 +597,8 @@ python -m compileall backend tests
 python -m pytest -v
 ```
 
+`v0.1.4` 发布准备阶段完整回归共 `58` 项测试通过。
+
 ### 运行数据库备份测试
 
 ```powershell
@@ -720,6 +754,15 @@ your-email@example.com
 
 不要写入真实邮箱或私钥内容。
 
+正式 Docker 镜像以专用非 root 用户运行：
+
+```text
+uid=10001(app)
+gid=10001(app)
+```
+
+production 环境中的 `/api/push/test-send` 仍会返回 `404`，并且不会出现在 OpenAPI `/docs` 中。
+
 ---
 
 ## Git 提交规范
@@ -767,13 +810,13 @@ nothing to commit, working tree clean
 版本标签示例：
 
 ```text
-v0.1.3
+v0.1.4
 ```
 
 正式镜像标签示例：
 
 ```text
-ghcr.io/just-createone/random-reminder:0.1.3
+ghcr.io/just-createone/random-reminder:0.1.4
 ghcr.io/just-createone/random-reminder:0.1
 ghcr.io/just-createone/random-reminder:latest
 ```
@@ -868,7 +911,7 @@ docker compose `
 ## 当前版本
 
 ```text
-v0.1.3
+v0.1.4
 ```
 
 当前版本已经完成：
@@ -885,20 +928,23 @@ v0.1.3
 - AMD64 和 ARM64 镜像
 - GitHub Actions 自动化测试
 - GHCR 正式镜像发布
+- Docker 非 root 用户运行
+- Release 镜像内置 VAPID 密钥生成脚本
+- production OpenAPI 隐藏测试推送接口
 - 数据库备份
 - 数据库恢复
-- 旧备份自动清理
+- 旧备份自动清理（保护最新备份，并按最大保存天数清理保护范围之外的旧备份）
 
 ---
 
 ## 后续计划
 
-- 完善部署和升级文档
-- 完善故障排查文档
-- 验证全新环境安装流程
-- 进行长期运行稳定性测试
-- 优化移动端通知体验
-- 完善产品商业化方案
+- 完成 PWA 独立窗口最终验收
+- 完成 Git 完整历史敏感信息检查
+- 发布并验证 `v0.1.4` 正式多架构镜像
+- 启动 5 至 10 人首批真实用户测试
+- 根据用户反馈确定 `v0.2.0` 功能范围
+- 继续优化移动端体验与商业化验证
 
 ## 项目文档
 

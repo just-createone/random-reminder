@@ -2,7 +2,7 @@
 
 本文档用于规范随机提醒器的功能开发、测试、文档维护、Git 提交和版本发布流程。
 
-当前项目版本：`v0.1.3`
+当前项目版本：`v0.1.4`
 
 ---
 
@@ -39,6 +39,7 @@ random-reminder/
 │  ├─ main.py               # FastAPI 应用
 │  └─ run.py                # 统一启动入口
 ├─ frontend/                # 前端页面和 PWA
+├─ scripts/                 # 部署和维护辅助脚本
 ├─ tests/                   # 自动化测试
 ├─ docs/                    # 项目文档
 ├─ data/                    # 本地数据库
@@ -328,6 +329,14 @@ docker compose ps
 ```powershell
 docker compose logs --tail=100 app
 ```
+
+修改 Dockerfile 或正式部署配置后，还应确认：
+
+- 容器运行 UID 不是 `0`
+- `/app/data` 和 `/app/backups` 在非 root 用户下可写
+- `/app/secrets/vapid` 在正式运行时保持只读
+- VAPID 密钥生成脚本可以在一次性容器中运行
+- production OpenAPI 不展示测试推送接口
 
 ---
 
@@ -624,10 +633,11 @@ git check-ignore -v .\secrets\vapid\*
 当前阶段重点：
 
 ```text
-完成二十四小时稳定性测试
-→ 完成真实手机和 PWA 验收
-→ 完成 MVP 最终验收
-→ 决定 v0.2.0 功能范围
+完成 v0.1.4 发布准备
+→ 完成 PWA 独立窗口最终验收
+→ 完成 Git 完整历史敏感信息检查
+→ 启动首批真实用户测试
+→ 根据反馈决定 v0.2.0 功能范围
 ```
 
 当前不优先开发：

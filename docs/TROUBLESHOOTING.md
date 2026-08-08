@@ -2,7 +2,7 @@
 
 本文档整理随机提醒器在本地开发、Docker 部署、数据库维护、通知和 PWA 使用过程中可能遇到的问题。
 
-当前版本：`v0.1.3`
+当前版本：`v0.1.4`
 
 ---
 
@@ -455,7 +455,7 @@ docker inspect `
 预期类似：
 
 ```text
-ghcr.io/just-createone/random-reminder:0.1.3
+ghcr.io/just-createone/random-reminder:0.1.4
 ```
 
 版本不正确时：
@@ -598,6 +598,25 @@ RANDOM_REMINDER_BACKUP_KEEP_LATEST
 RANDOM_REMINDER_BACKUP_MAX_AGE_DAYS
 ```
 
+`v0.1.4` 起，清理逻辑应同时使用这两个配置：最新保留数量范围内的备份始终保留，保护范围之外只有超过最大保存天数的标准命名备份才会删除。
+
+可以检查当前镜像的函数签名：
+
+```powershell
+docker compose `
+    --env-file .env.release `
+    -f compose.release.yaml `
+    exec app `
+    python -c "import inspect; from backend.maintenance.cleanup_backups import cleanup_backups; print(inspect.signature(cleanup_backups))"
+```
+
+输出中应包含：
+
+```text
+keep_latest
+max_age_days
+```
+
 不确定清理结果时，不要直接执行正式删除。
 
 ---
@@ -705,6 +724,31 @@ secrets/vapid/
 
 不要将私钥内容复制到 README、日志或 Git 仓库中。
 
+如果 `/api/push/vapid-public-key` 提示公钥不存在，并且 `secrets/vapid/` 为空，`v0.1.4` 可以直接使用正式镜像生成：
+
+```powershell
+$vapidHostPath = (
+    Resolve-Path .\secrets\vapid
+).Path
+
+docker run `
+    --rm `
+    --pull never `
+    --mount "type=bind,source=$vapidHostPath,target=/app/secrets/vapid" `
+    ghcr.io/just-createone/random-reminder:0.1.4 `
+    python /app/scripts/generate_vapid_keys.py
+```
+
+生成后应存在：
+
+```text
+private_key.pem
+public_key.pem
+application_server_key.txt
+```
+
+脚本会拒绝覆盖已有密钥。如果已有文件，不要为了排错随意重新生成。
+
 检查是否被 Git 忽略：
 
 ```powershell
@@ -713,7 +757,41 @@ git check-ignore -v .\secrets\vapid\*
 
 ---
 
-## 十七、PWA 无法安装
+## 十七、非 root 容器权限问题
+
+`v0.1.4` 正式镜像默认使用：
+
+```text
+uid=10001(app)
+gid=10001(app)
+```
+
+检查运行身份：
+
+```powershell
+docker exec `
+    random-reminder-release `
+    id -u
+```
+
+预期：
+
+```text
+10001
+```
+
+如果日志出现 `PermissionError`，重点检查：
+
+- `data/` 是否允许容器写入
+- `backups/` 是否允许容器写入
+- `secrets/vapid/` 是否已经准备好密钥文件
+- 正式 VAPID 挂载应保持只读，不应尝试在运行中的应用容器里生成密钥
+
+Windows Docker Desktop 的 bind mount 通常可以正常工作；Linux 服务器部署时，应根据 UID/GID `10001` 调整宿主机目录权限。
+
+---
+
+## 十八、PWA 无法安装
 
 检查以下文件是否可以访问：
 
@@ -751,7 +829,7 @@ Application
 
 ---
 
-## 十八、页面数据没有自动更新
+## 十九、页面数据没有自动更新
 
 检查浏览器开发者工具：
 
@@ -789,7 +867,7 @@ docker compose `
 
 ---
 
-## 十九、Git 推送失败
+## 二十、Git 推送失败
 
 ### 普通推送
 
@@ -810,7 +888,7 @@ git -c http.proxy=http://127.0.0.1:7897 `
 ```powershell
 git -c http.proxy=http://127.0.0.1:7897 `
     -c http.version=HTTP/1.1 `
-    push origin v0.1.3
+    push origin v0.1.4
 ```
 
 检查远程：
@@ -821,7 +899,7 @@ git remote -v
 
 ---
 
-## 二十、测试出现导入错误
+## 二十一、测试出现导入错误
 
 ### 问题表现
 
@@ -865,7 +943,7 @@ python -m pytest -v
 
 ---
 
-## 二十一、查看完整诊断信息
+## 二十二、查看完整诊断信息
 
 出现未知故障时，依次收集：
 
@@ -908,7 +986,7 @@ docker compose `
 
 ---
 
-## 二十二、安全检查
+## 二十三、安全检查
 
 提交前检查：
 

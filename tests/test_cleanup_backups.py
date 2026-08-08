@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -161,4 +162,176 @@ def test_cleanup_backups_rejects_invalid_keep_count(
         cleanup_backups(
             backup_directory=tmp_path,
             keep_count=0,
+        )
+
+
+def test_cleanup_backups_respects_max_age_boundary(
+    tmp_path: Path,
+) -> None:
+    """
+    Files older than the age limit are deleted.
+    Files exactly on the boundary are preserved.
+    """
+
+    created_files = create_backup_files(
+        tmp_path,
+        5,
+    )
+
+    reference_time = datetime(
+        2026,
+        8,
+        5,
+        12,
+        0,
+        0,
+        tzinfo=timezone.utc,
+    )
+
+    preview = cleanup_backups(
+        backup_directory=tmp_path,
+        keep_latest=2,
+        max_age_days=2,
+        dry_run=True,
+        reference_time=reference_time,
+    )
+
+    # The cutoff is 2026-08-03 12:00 UTC.
+    # August 1 and 2 are expired.
+    # August 3 is exactly on the boundary.
+    assert preview == [
+        created_files[1],
+        created_files[0],
+    ]
+
+    assert all(
+        backup_file.is_file()
+        for backup_file in created_files
+    )
+
+    deleted_files = cleanup_backups(
+        backup_directory=tmp_path,
+        keep_latest=2,
+        max_age_days=2,
+        reference_time=reference_time,
+    )
+
+    assert deleted_files == preview
+
+    assert find_backup_files(tmp_path) == [
+        created_files[4],
+        created_files[3],
+        created_files[2],
+    ]
+
+
+def test_cleanup_backups_always_preserves_latest_files(
+    tmp_path: Path,
+) -> None:
+    """
+    The newest protected files remain even when all
+    backups are older than the configured age limit.
+    """
+
+    created_files = create_backup_files(
+        tmp_path,
+        5,
+    )
+
+    deleted_files = cleanup_backups(
+        backup_directory=tmp_path,
+        keep_latest=2,
+        max_age_days=1,
+        reference_time=datetime(
+            2026,
+            8,
+            10,
+            12,
+            0,
+            0,
+            tzinfo=timezone.utc,
+        ),
+    )
+
+    assert deleted_files == [
+        created_files[2],
+        created_files[1],
+        created_files[0],
+    ]
+
+    assert find_backup_files(tmp_path) == [
+        created_files[4],
+        created_files[3],
+    ]
+
+
+def test_cleanup_backups_preserves_unparseable_backup_name(
+    tmp_path: Path,
+) -> None:
+    """
+    A matching filename with an invalid timestamp
+    must be preserved rather than deleted.
+    """
+
+    created_files = create_backup_files(
+        tmp_path,
+        2,
+    )
+
+    unparseable_file = (
+        tmp_path
+        / "random_reminder_00000000_invalid.db"
+    )
+
+    unparseable_file.write_text(
+        "preserve this file",
+        encoding="utf-8",
+    )
+
+    deleted_files = cleanup_backups(
+        backup_directory=tmp_path,
+        keep_latest=1,
+        max_age_days=1,
+        reference_time=datetime(
+            2026,
+            8,
+            10,
+            12,
+            0,
+            0,
+            tzinfo=timezone.utc,
+        ),
+    )
+
+    assert created_files[0] in deleted_files
+    assert created_files[1].is_file()
+    assert unparseable_file.is_file()
+
+
+def test_cleanup_backups_rejects_invalid_max_age_days(
+    tmp_path: Path,
+) -> None:
+    """The maximum age must be at least one day."""
+
+    with pytest.raises(ValueError):
+        cleanup_backups(
+            backup_directory=tmp_path,
+            keep_latest=1,
+            max_age_days=0,
+        )
+
+
+def test_cleanup_backups_rejects_conflicting_keep_values(
+    tmp_path: Path,
+) -> None:
+    """
+    Conflicting legacy and current keep values
+    must be rejected.
+    """
+
+    with pytest.raises(ValueError):
+        cleanup_backups(
+            backup_directory=tmp_path,
+            keep_latest=2,
+            keep_count=3,
         )

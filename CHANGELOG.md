@@ -11,7 +11,7 @@
 例如：
 
 ```text
-0.1.3
+0.1.4
 ```
 
 版本类型：
@@ -26,24 +26,54 @@
 
 ### 计划新增
 
-- 完成二十四小时稳定性测试
-- 完成真实手机通知测试
-- 完成 PWA 独立窗口测试
-- 完成 MVP 最终验收
+- 完成 PWA 独立窗口最终验收
+- 完成 Git 完整历史敏感信息检查
+- 启动首批真实用户测试
 - 增加提醒编辑功能
 - 增加单条提醒启用和停用
 - 优化移动端使用体验
 - 增加提醒数据导入和导出
 
-### 文档
+---
 
-- 增加项目部署指南
-- 增加故障排查指南
-- 增加 MVP 验收清单
-- 增加产品路线和商业化规划
-- 增加界面验收记录
-- 增加首批用户测试计划
-- 增加版本发布检查清单
+## [0.1.4] - 2026-08-08
+
+### 修复
+
+- 修复备份清理模块仍使用旧 `BACKUP_RETENTION_COUNT` 的问题
+- 备份清理正式使用 `RANDOM_REMINDER_BACKUP_KEEP_LATEST` 和 `RANDOM_REMINDER_BACKUP_MAX_AGE_DAYS`
+- 最新保留范围内的备份始终受到保护，保护范围之外仅删除超过最大保存天数的标准备份
+- 非标准时间戳备份文件默认保留，避免误删
+- production 环境中的 `/api/push/test-send` 不再出现在 OpenAPI 文档中，同时直接访问仍返回 `404`
+
+### Docker 与部署
+
+- Docker 镜像增加专用 `app` 用户和组，运行时 UID/GID 为 `10001`
+- 正式应用不再以 root 用户运行
+- Release 镜像加入 `scripts/generate_vapid_keys.py`
+- VAPID 生成脚本支持在镜像中直接生成三项密钥文件，并拒绝覆盖已有密钥
+- 继续保持 `/app/secrets/vapid` 正式运行时只读挂载
+- 验证 `/app/data` 和 `/app/backups` 在非 root 用户下仍可写
+
+### 测试
+
+- 增加 production / development OpenAPI 行为测试
+- 增加备份最大保存天数、边界时间、最新备份保护、异常文件名保护等测试
+- 完整 Pytest 回归达到 `58` 项并全部通过
+- 验证备份创建、恢复、损坏备份拒绝、安全备份和清理 CLI
+- 验证容器异常退出恢复、容器删除重建后的数据持久化
+- 验证 VAPID 密钥跨容器重建保持不变且挂载只读
+- 验证 Push 订阅跨容器重建持久化
+- 验证 Android Chrome 后台、锁屏 Web Push 和通知点击跳转
+- 验证 AMD64 与 ARM64 多架构镜像清单
+- 按项目验收口径完成二十四小时稳定性验证
+
+### 安全
+
+- 验证 `.env.release`、数据库、备份和 VAPID 密钥未被 Git 跟踪
+- 验证 Release 镜像本身不包含 `.env.release`、数据库或 VAPID 私钥
+- 验证运行日志未发现 VAPID 私钥、Push auth key 或 Authorization Header 泄露
+- 验证容器未启用 privileged 模式、未挂载 Docker Socket、未额外添加 Linux capability
 
 ---
 
