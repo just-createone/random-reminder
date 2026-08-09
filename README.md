@@ -4,7 +4,7 @@
 
 用户可以维护自己的提醒文本，系统每天随机生成提醒计划，并在指定时间发送浏览器推送或本地系统通知。
 
-当前版本：`v0.1.4`
+当前版本：`v0.1.5`
 
 ---
 
@@ -244,7 +244,7 @@ ghcr.io/just-createone/random-reminder
 当前版本镜像：
 
 ```text
-ghcr.io/just-createone/random-reminder:0.1.4
+ghcr.io/just-createone/random-reminder:0.1.5
 ```
 
 ### 1. 创建正式环境配置
@@ -298,7 +298,7 @@ docker run `
     --rm `
     --pull never `
     --mount "type=bind,source=$vapidHostPath,target=/app/secrets/vapid" `
-    ghcr.io/just-createone/random-reminder:0.1.4 `
+    ghcr.io/just-createone/random-reminder:0.1.5 `
     python /app/scripts/generate_vapid_keys.py
 ```
 
@@ -320,7 +320,50 @@ application_server_key.txt
 
 不要将 VAPID 私钥提交到公开仓库。
 
-### 4. 检查 Compose 配置
+### 4. 旧 root 版本升级时执行一次权限迁移
+
+`v0.1.4` 起正式镜像使用 UID/GID `10001` 的非 root 用户运行。旧版本如果曾由 root 创建数据库，数据库文件可能仍是 `root:root / 0644`，直接启动新镜像时会出现：
+
+```text
+sqlite3.OperationalError: attempt to write a readonly database
+```
+
+从 `v0.1.3` 或更早版本升级到 `v0.1.5` 时，应在启动新版本前先停止应用，并使用 `v0.1.5` 镜像执行一次权限迁移。先预览：
+
+```powershell
+docker compose `
+    --env-file .env.release `
+    -f compose.release.yaml `
+    run `
+    --rm `
+    --no-deps `
+    --user 0 `
+    --entrypoint python `
+    app `
+    /app/scripts/migrate_runtime_permissions.py `
+    --dry-run
+```
+
+确认路径正确后执行正式迁移：
+
+```powershell
+docker compose `
+    --env-file .env.release `
+    -f compose.release.yaml `
+    run `
+    --rm `
+    --no-deps `
+    --user 0 `
+    --entrypoint python `
+    app `
+    /app/scripts/migrate_runtime_permissions.py
+```
+
+脚本只迁移运行数据相关对象的 UID/GID，包括数据库目录、数据库及 SQLite 辅助文件、备份目录；不会修改数据库内容，也不会修改只读 VAPID 密钥。
+
+如果某个 `v0.1.4` 部署已经手动完成 ownership 迁移，并确认数据库对 UID `10001` 可写，可以跳过这一步。
+
+### 5. 检查 Compose 配置
 
 ```powershell
 docker compose `
@@ -338,7 +381,7 @@ docker compose `
 - 端口正确
 - 环境变量已经展开
 
-### 5. 拉取正式镜像
+### 6. 拉取正式镜像
 
 ```powershell
 docker compose `
@@ -347,7 +390,7 @@ docker compose `
     pull
 ```
 
-### 6. 启动正式容器
+### 7. 启动正式容器
 
 ```powershell
 docker compose `
@@ -356,7 +399,7 @@ docker compose `
     up -d
 ```
 
-### 7. 查看运行状态
+### 8. 查看运行状态
 
 ```powershell
 docker compose `
@@ -372,7 +415,7 @@ Up
 healthy
 ```
 
-### 8. 查看正式容器日志
+### 9. 查看正式容器日志
 
 ```powershell
 docker compose `
@@ -383,7 +426,7 @@ docker compose `
     app
 ```
 
-### 9. 停止正式容器
+### 10. 停止正式容器
 
 ```powershell
 docker compose `
@@ -411,7 +454,7 @@ docker compose `
 | `RANDOM_REMINDER_BACKUP_MAX_AGE_DAYS` | 备份最大保存天数       | `90`                                           |
 | `RANDOM_REMINDER_VAPID_DIR`           | VAPID 密钥目录         | `/app/secrets/vapid`                           |
 | `VAPID_SUBJECT`                       | Web Push 联系信息      | `mailto:your-email@example.com`                |
-| `RANDOM_REMINDER_IMAGE`               | 正式 Docker 镜像       | `ghcr.io/just-createone/random-reminder:0.1.4` |
+| `RANDOM_REMINDER_IMAGE`               | 正式 Docker 镜像       | `ghcr.io/just-createone/random-reminder:0.1.5` |
 | `RANDOM_REMINDER_HOST_PORT`           | 宿主机端口             | `8000`                                         |
 
 环境变量示例文件：
@@ -597,7 +640,7 @@ python -m compileall backend tests
 python -m pytest -v
 ```
 
-`v0.1.4` 发布准备阶段完整回归共 `58` 项测试通过。
+`v0.1.4` 发布准备阶段历史回归共 `58` 项测试通过；`v0.1.5` 新增权限迁移测试后，完整回归共 `63` 项测试通过。
 
 ### 运行数据库备份测试
 
@@ -810,13 +853,13 @@ nothing to commit, working tree clean
 版本标签示例：
 
 ```text
-v0.1.4
+v0.1.5
 ```
 
 正式镜像标签示例：
 
 ```text
-ghcr.io/just-createone/random-reminder:0.1.4
+ghcr.io/just-createone/random-reminder:0.1.5
 ghcr.io/just-createone/random-reminder:0.1
 ghcr.io/just-createone/random-reminder:latest
 ```
@@ -911,7 +954,7 @@ docker compose `
 ## 当前版本
 
 ```text
-v0.1.4
+v0.1.5
 ```
 
 当前版本已经完成：
@@ -931,6 +974,8 @@ v0.1.4
 - Docker 非 root 用户运行
 - Release 镜像内置 VAPID 密钥生成脚本
 - production OpenAPI 隐藏测试推送接口
+- 旧 root 部署升级到非 root 镜像的一次性权限迁移工具
+- 权限迁移完成后继续以 UID/GID `10001` 运行
 - 数据库备份
 - 数据库恢复
 - 旧备份自动清理（保护最新备份，并按最大保存天数清理保护范围之外的旧备份）
@@ -941,7 +986,7 @@ v0.1.4
 
 - 完成 PWA 独立窗口最终验收
 - 完成 Git 完整历史敏感信息检查
-- 发布并验证 `v0.1.4` 正式多架构镜像
+- 发布并验证 `v0.1.5` 正式多架构镜像
 - 启动 5 至 10 人首批真实用户测试
 - 根据用户反馈确定 `v0.2.0` 功能范围
 - 继续优化移动端体验与商业化验证

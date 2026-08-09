@@ -2,7 +2,7 @@
 
 本文档整理随机提醒器在本地开发、Docker 部署、数据库维护、通知和 PWA 使用过程中可能遇到的问题。
 
-当前版本：`v0.1.4`
+当前版本：`v0.1.5`
 
 ---
 
@@ -455,7 +455,7 @@ docker inspect `
 预期类似：
 
 ```text
-ghcr.io/just-createone/random-reminder:0.1.4
+ghcr.io/just-createone/random-reminder:0.1.5
 ```
 
 版本不正确时：
@@ -735,7 +735,7 @@ docker run `
     --rm `
     --pull never `
     --mount "type=bind,source=$vapidHostPath,target=/app/secrets/vapid" `
-    ghcr.io/just-createone/random-reminder:0.1.4 `
+    ghcr.io/just-createone/random-reminder:0.1.5 `
     python /app/scripts/generate_vapid_keys.py
 ```
 
@@ -759,35 +759,111 @@ git check-ignore -v .\secrets\vapid\*
 
 ## 十七、非 root 容器权限问题
 
-`v0.1.4` 正式镜像默认使用：
+`v0.1.4` 起正式镜像默认使用：
 
 ```text
 uid=10001(app)
 gid=10001(app)
 ```
 
-检查运行身份：
+### 1. 升级后出现 readonly database
 
-```powershell
-docker exec `
-    random-reminder-release `
-    id -u
-```
-
-预期：
+典型日志：
 
 ```text
-10001
+sqlite3.OperationalError: attempt to write a readonly database
 ```
 
-如果日志出现 `PermissionError`，重点检查：
+容器可能持续处于：
 
-- `data/` 是否允许容器写入
-- `backups/` 是否允许容器写入
-- `secrets/vapid/` 是否已经准备好密钥文件
-- 正式 VAPID 挂载应保持只读，不应尝试在运行中的应用容器里生成密钥
+```text
+Restarting
+unhealthy
+```
 
-Windows Docker Desktop 的 bind mount 通常可以正常工作；Linux 服务器部署时，应根据 UID/GID `10001` 调整宿主机目录权限。
+如果旧版本曾以 root 运行，`random_reminder.db` 可能仍然属于 `root:root` 且 mode 为 `0644`。目录虽然是可写挂载，新 UID `10001` 仍无法修改数据库文件本身。
+
+先停止应用：
+
+```powershell
+docker compose `
+    --env-file .env.release `
+    -f compose.release.yaml `
+    stop app
+```
+
+`v0.1.5` 提供一次性迁移脚本。先预览：
+
+```powershell
+docker compose `
+    --env-file .env.release `
+    -f compose.release.yaml `
+    run `
+    --rm `
+    --no-deps `
+    --user 0 `
+    --entrypoint python `
+    app `
+    /app/scripts/migrate_runtime_permissions.py `
+    --dry-run
+```
+
+确认后执行：
+
+```powershell
+docker compose `
+    --env-file .env.release `
+    -f compose.release.yaml `
+    run `
+    --rm `
+    --no-deps `
+    --user 0 `
+    --entrypoint python `
+    app `
+    /app/scripts/migrate_runtime_permissions.py
+```
+
+脚本会处理：
+
+- `/app/data` 目录
+- `random_reminder.db`
+- 可能存在的 `random_reminder.db-wal`
+- 可能存在的 `random_reminder.db-shm`
+- 可能存在的 `random_reminder.db-journal`
+- `/app/backups` 目录
+
+脚本只修改 ownership 到 UID/GID `10001`，不会修改数据库内容，不会把数据库改成 `777`，也不会修改 `/app/secrets/vapid`。
+
+重新启动：
+
+```powershell
+docker compose `
+    --env-file .env.release `
+    -f compose.release.yaml `
+    up -d
+```
+
+验证运行身份：
+
+```powershell
+docker exec random-reminder-release id
+```
+
+预期包含：
+
+```text
+uid=10001(app) gid=10001(app)
+```
+
+验证健康状态和数据库可写后再继续使用。
+
+### 2. VAPID 文件仍属于 root 是否有问题
+
+正式运行只要求 UID `10001` 能读取 VAPID 密钥，而且 `/app/secrets/vapid` 应保持只读挂载。测试中 `root:root / 0644` 的三个 VAPID 文件仍可被 UID `10001` 正常读取，`/api/push/vapid-public-key` 也可正常返回，因此不要为了修复数据库权限而递归修改 VAPID 目录。
+
+### 3. Linux bind mount 权限
+
+Windows Docker Desktop 的 bind mount 通常可以正常工作；Linux 服务器部署时，宿主机 `data/` 和 `backups/` 需要允许 UID/GID `10001` 写入。优先使用迁移脚本或明确的 ownership 设置，不建议通过长期 `chmod 777` 规避权限问题。
 
 ---
 
@@ -888,7 +964,7 @@ git -c http.proxy=http://127.0.0.1:7897 `
 ```powershell
 git -c http.proxy=http://127.0.0.1:7897 `
     -c http.version=HTTP/1.1 `
-    push origin v0.1.4
+    push origin v0.1.5
 ```
 
 检查远程：

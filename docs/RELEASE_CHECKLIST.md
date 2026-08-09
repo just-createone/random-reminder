@@ -2,7 +2,7 @@
 
 本文档用于规范随机提醒器每次正式版本发布流程，避免遗漏测试、备份、版本号、镜像和部署验证。
 
-当前正式版本：`v0.1.4`
+当前正式版本：`v0.1.5`
 
 ---
 
@@ -21,8 +21,8 @@
 
 | 类型     | 示例            | 适用情况             |
 | -------- | --------------- | -------------------- |
-| 修复版本 | `0.1.4 → 0.1.5` | 修复问题、小幅优化   |
-| 功能版本 | `0.1.4 → 0.2.0` | 增加一组新功能       |
+| 修复版本 | `0.1.5 → 0.1.6` | 修复问题、小幅优化   |
+| 功能版本 | `0.1.5 → 0.2.0` | 增加一组新功能       |
 | 正式版本 | `0.x.x → 1.0.0` | 达到正式商业发布标准 |
 
 ---
@@ -199,13 +199,13 @@ docs/PRODUCT_ROADMAP.md
 版本号示例：
 
 ```python
-VERSION = "0.1.4"
+VERSION = "0.1.5"
 ```
 
 正式镜像示例：
 
 ```dotenv
-RANDOM_REMINDER_IMAGE=ghcr.io/just-createone/random-reminder:0.1.4
+RANDOM_REMINDER_IMAGE=ghcr.io/just-createone/random-reminder:0.1.5
 ```
 
 发布前确认：
@@ -222,7 +222,7 @@ RANDOM_REMINDER_IMAGE=ghcr.io/just-createone/random-reminder:0.1.4
 ```powershell
 Select-String `
     -Path README.md,backend\*.py,.env.release.example,docs\*.md `
-    -Pattern "0\.1\.4"
+    -Pattern "0\.1\.5"
 ```
 
 根据发布目标判断哪些位置需要更新。
@@ -485,6 +485,7 @@ ghcr.io/just-createone/random-reminder:x.y.z
 - [ ] 镜像支持 ARM64
 - [ ] `docker buildx imagetools inspect` 同时显示 `linux/amd64` 和 `linux/arm64`
 - [ ] 镜像内包含 `/app/scripts/generate_vapid_keys.py`
+- [ ] 镜像内包含 `/app/scripts/migrate_runtime_permissions.py`
 
 ---
 
@@ -500,6 +501,24 @@ docker compose `
     -f compose.release.yaml `
     pull
 ```
+
+旧 root 版本升级到非 root 镜像时，先停止应用并执行一次权限迁移。推荐先运行：
+
+```powershell
+docker compose `
+    --env-file .env.release `
+    -f compose.release.yaml `
+    run `
+    --rm `
+    --no-deps `
+    --user 0 `
+    --entrypoint python `
+    app `
+    /app/scripts/migrate_runtime_permissions.py `
+    --dry-run
+```
+
+确认后去掉 `--dry-run` 执行正式迁移。已经完成 ownership 迁移且数据库对 UID `10001` 可写的部署可以跳过。
 
 启动新版本：
 

@@ -2,7 +2,7 @@
 
 本文档记录随机提醒器的正式部署、版本升级、版本回滚、数据库备份和数据库恢复流程。
 
-当前正式版本：`v0.1.4`
+当前正式版本：`v0.1.5`
 
 ---
 
@@ -25,7 +25,7 @@ ghcr.io/just-createone/random-reminder
 当前版本镜像：
 
 ```text
-ghcr.io/just-createone/random-reminder:0.1.4
+ghcr.io/just-createone/random-reminder:0.1.5
 ```
 
 ---
@@ -58,7 +58,7 @@ code .env.release
 示例配置：
 
 ```dotenv
-RANDOM_REMINDER_IMAGE=ghcr.io/just-createone/random-reminder:0.1.4
+RANDOM_REMINDER_IMAGE=ghcr.io/just-createone/random-reminder:0.1.5
 RANDOM_REMINDER_HOST_PORT=8000
 RANDOM_REMINDER_LOG_LEVEL=INFO
 
@@ -107,7 +107,7 @@ docker run `
     --rm `
     --pull never `
     --mount "type=bind,source=$vapidHostPath,target=/app/secrets/vapid" `
-    ghcr.io/just-createone/random-reminder:0.1.4 `
+    ghcr.io/just-createone/random-reminder:0.1.5 `
     python /app/scripts/generate_vapid_keys.py
 ```
 
@@ -246,7 +246,7 @@ Ctrl + C
 
 ## 四、正式版本升级
 
-以下示例表示从旧版本升级到 `0.1.4`。
+以下示例表示升级到 `0.1.5`。从 `v0.1.3` 或更早的 root 运行版本升级时，需要在启动新版本前执行一次运行时权限迁移。
 
 ### 1. 升级前创建数据库备份
 
@@ -280,7 +280,7 @@ code .env.release
 修改：
 
 ```dotenv
-RANDOM_REMINDER_IMAGE=ghcr.io/just-createone/random-reminder:0.1.4
+RANDOM_REMINDER_IMAGE=ghcr.io/just-createone/random-reminder:0.1.5
 ```
 
 ### 3. 检查配置
@@ -303,7 +303,57 @@ docker compose `
     pull
 ```
 
-### 5. 使用新镜像重新创建容器
+### 5. 旧 root 版本执行一次权限迁移
+
+`v0.1.4` 起正式镜像使用 UID/GID `10001` 的非 root 用户运行。旧版本如果由 root 创建了 `random_reminder.db`，数据库可能仍是 `root:root / 0644`。此时直接启动新镜像会出现：
+
+```text
+sqlite3.OperationalError: attempt to write a readonly database
+```
+
+从 `v0.1.3` 或更早版本升级时，先停止应用：
+
+```powershell
+docker compose `
+    --env-file .env.release `
+    -f compose.release.yaml `
+    stop app
+```
+
+使用已经拉取的 `v0.1.5` 镜像预览迁移目标：
+
+```powershell
+docker compose `
+    --env-file .env.release `
+    -f compose.release.yaml `
+    run `
+    --rm `
+    --no-deps `
+    --user 0 `
+    --entrypoint python `
+    app `
+    /app/scripts/migrate_runtime_permissions.py `
+    --dry-run
+```
+
+确认只包含数据目录、数据库及 SQLite 辅助文件、备份目录后，执行正式迁移：
+
+```powershell
+docker compose `
+    --env-file .env.release `
+    -f compose.release.yaml `
+    run `
+    --rm `
+    --no-deps `
+    --user 0 `
+    --entrypoint python `
+    app `
+    /app/scripts/migrate_runtime_permissions.py
+```
+
+迁移脚本只调整 UID/GID，不修改数据库内容、不放宽文件 mode，也不修改 VAPID 密钥。如果某个 `v0.1.4` 部署已经手动完成 ownership 迁移，并确认数据库对 UID `10001` 可写，可以跳过此步骤。
+
+### 6. 使用新镜像重新创建容器
 
 ```powershell
 docker compose `
@@ -314,7 +364,7 @@ docker compose `
 
 Docker Compose 会根据镜像变化重新创建应用容器。
 
-### 6. 验证升级结果
+### 7. 验证升级结果
 
 ```powershell
 docker compose `
@@ -725,6 +775,8 @@ docker compose `
 - [ ] Docker Desktop 正常运行
 - [ ] `.env.release` 配置正确
 - [ ] 镜像版本正确
+- [ ] 旧 root 版本升级时已经完成运行时权限迁移
+- [ ] 容器以 UID `10001` 非 root 用户运行
 - [ ] 容器状态为 `healthy`
 - [ ] 健康接口正常
 - [ ] 首页可以打开
