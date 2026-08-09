@@ -5,7 +5,6 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from backend.api.executor import router as executor_router
 from backend.api.notifications import (
     router as notifications_router,
 )
@@ -169,9 +168,6 @@ app.include_router(
     notifications_router
 )
 
-app.include_router(
-    executor_router
-)
 app.include_router(
     push_subscriptions_router
 )

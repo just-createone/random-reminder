@@ -179,3 +179,52 @@ print(
         result["test_send_route_registered"]
         is False
     )
+
+
+def test_executor_routes_not_registered_in_any_environment():
+    script = """
+import json
+
+from fastapi.routing import APIRoute
+
+from backend.main import app
+
+executor_paths = {
+    "/api/executor/status",
+    "/api/executor/run-once",
+}
+
+registered_paths = {
+    route.path
+    for route in app.routes
+    if isinstance(route, APIRoute)
+}
+
+openapi_paths = set(app.openapi()["paths"])
+
+print(
+    "TEST_RESULT="
+    + json.dumps(
+        {
+            "registered_executor_paths": sorted(
+                executor_paths & registered_paths
+            ),
+            "openapi_executor_paths": sorted(
+                executor_paths & openapi_paths
+            ),
+        }
+    )
+)
+"""
+
+    for environment in (
+        "development",
+        "production",
+    ):
+        result = _run_python(
+            script,
+            environment=environment,
+        )
+
+        assert result["registered_executor_paths"] == []
+        assert result["openapi_executor_paths"] == []
