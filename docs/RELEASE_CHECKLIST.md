@@ -2,7 +2,7 @@
 
 本文档用于规范随机提醒器每次正式版本发布流程，避免遗漏测试、备份、版本号、镜像和部署验证。
 
-当前正式版本：`v0.1.5`
+当前正式版本：`v0.1.6`
 
 ---
 
@@ -21,8 +21,8 @@
 
 | 类型     | 示例            | 适用情况             |
 | -------- | --------------- | -------------------- |
-| 修复版本 | `0.1.5 → 0.1.6` | 修复问题、小幅优化   |
-| 功能版本 | `0.1.5 → 0.2.0` | 增加一组新功能       |
+| 修复版本 | `0.1.6 → 0.1.7` | 修复问题、小幅优化   |
+| 功能版本 | `0.1.6 → 0.2.0` | 增加一组新功能       |
 | 正式版本 | `0.x.x → 1.0.0` | 达到正式商业发布标准 |
 
 ---
@@ -199,13 +199,13 @@ docs/PRODUCT_ROADMAP.md
 版本号示例：
 
 ```python
-VERSION = "0.1.5"
+VERSION = "0.1.6"
 ```
 
 正式镜像示例：
 
 ```dotenv
-RANDOM_REMINDER_IMAGE=ghcr.io/just-createone/random-reminder:0.1.5
+RANDOM_REMINDER_IMAGE=ghcr.io/just-createone/random-reminder:0.1.6
 ```
 
 发布前确认：
@@ -303,6 +303,8 @@ Invoke-RestMethod http://127.0.0.1:8000/health
 - [ ] `/app/data` 和 `/app/backups` 在非 root 用户下可写
 - [ ] `/app/secrets/vapid` 正式挂载保持只读
 - [ ] production OpenAPI 不显示 `/api/push/test-send`
+- [ ] production 路由表不注册 `/api/push/test-send`
+- [ ] development 环境仍注册 `/api/push/test-send`
 
 ---
 

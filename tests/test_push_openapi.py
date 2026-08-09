@@ -144,3 +144,38 @@ print(
     )
 
     assert result["status_code"] == 404
+
+def test_test_send_route_not_registered_in_production():
+    script = """
+import json
+
+from fastapi.routing import APIRoute
+
+from backend.main import app
+
+registered = any(
+    isinstance(route, APIRoute)
+    and route.path == "/api/push/test-send"
+    for route in app.routes
+)
+
+print(
+    "TEST_RESULT="
+    + json.dumps(
+        {
+            "test_send_route_registered":
+                registered,
+        }
+    )
+)
+"""
+
+    result = _run_python(
+        script,
+        environment="production",
+    )
+
+    assert (
+        result["test_send_route_registered"]
+        is False
+    )

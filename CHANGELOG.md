@@ -11,7 +11,7 @@
 例如：
 
 ```text
-0.1.5
+0.1.6
 ```
 
 版本类型：
@@ -35,6 +35,22 @@
 - 增加提醒数据导入和导出
 
 ---
+
+## [0.1.6] - 2026-08-09
+
+### 修复
+
+- 修复 production 环境虽然从 OpenAPI 隐藏 `/api/push/test-send`，但路由仍被 FastAPI 注册的问题
+- `DEBUG=False` 时不再注册 `/api/push/test-send` 的 `APIRoute`，因此请求不会进入测试推送接口的请求体校验或业务处理
+- `DEBUG=True` 时继续注册测试推送接口，保留开发环境调试能力
+- 保留函数内部的 production `404` 防护，作为直接函数调用时的额外保护
+
+### 测试
+
+- 新增 production 环境“测试推送路由未注册”回归测试
+- `tests/test_push_openapi.py` 由 `3` 项增加到 `4` 项并全部通过
+- 完整 Pytest 回归由 `63` 项增加到 `64` 项并全部通过
+- `v0.1.5` 正式环境 Smoke Test 曾复现无请求体 POST `/api/push/test-send` 返回 `422`；本版本通过取消 production 路由注册修复该问题
 
 ## [0.1.5] - 2026-08-09
 
@@ -73,7 +89,8 @@
 - 备份清理正式使用 `RANDOM_REMINDER_BACKUP_KEEP_LATEST` 和 `RANDOM_REMINDER_BACKUP_MAX_AGE_DAYS`
 - 最新保留范围内的备份始终受到保护，保护范围之外仅删除超过最大保存天数的标准备份
 - 非标准时间戳备份文件默认保留，避免误删
-- production 环境中的 `/api/push/test-send` 不再出现在 OpenAPI 文档中，同时直接访问仍返回 `404`
+- production 环境中的 `/api/push/test-send` 不再出现在 OpenAPI 文档中，并保留 handler 级 `404` 防护
+- 该版本仍会注册测试推送路由；无请求体请求可能在进入 handler 前被校验为 `422`，路由注册问题在 `v0.1.6` 修复
 
 ### Docker 与部署
 

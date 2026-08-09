@@ -2,7 +2,7 @@
 
 本文档记录随机提醒器的正式部署、版本升级、版本回滚、数据库备份和数据库恢复流程。
 
-当前正式版本：`v0.1.5`
+当前正式版本：`v0.1.6`
 
 ---
 
@@ -25,7 +25,7 @@ ghcr.io/just-createone/random-reminder
 当前版本镜像：
 
 ```text
-ghcr.io/just-createone/random-reminder:0.1.5
+ghcr.io/just-createone/random-reminder:0.1.6
 ```
 
 ---
@@ -58,7 +58,7 @@ code .env.release
 示例配置：
 
 ```dotenv
-RANDOM_REMINDER_IMAGE=ghcr.io/just-createone/random-reminder:0.1.5
+RANDOM_REMINDER_IMAGE=ghcr.io/just-createone/random-reminder:0.1.6
 RANDOM_REMINDER_HOST_PORT=8000
 RANDOM_REMINDER_LOG_LEVEL=INFO
 
@@ -107,7 +107,7 @@ docker run `
     --rm `
     --pull never `
     --mount "type=bind,source=$vapidHostPath,target=/app/secrets/vapid" `
-    ghcr.io/just-createone/random-reminder:0.1.5 `
+    ghcr.io/just-createone/random-reminder:0.1.6 `
     python /app/scripts/generate_vapid_keys.py
 ```
 
@@ -208,7 +208,7 @@ docker exec `
 10001
 ```
 
-production 环境的 `/api/push/test-send` 不会出现在 OpenAPI 文档中，直接访问该测试接口也应返回 `404`。
+从 `v0.1.6` 起，production 环境不会注册 `/api/push/test-send` 的 API 路由，同时该接口不会出现在 OpenAPI 文档中；development 环境仍保留该测试路由。
 
 ---
 
@@ -246,7 +246,7 @@ Ctrl + C
 
 ## 四、正式版本升级
 
-以下示例表示升级到 `0.1.5`。从 `v0.1.3` 或更早的 root 运行版本升级时，需要在启动新版本前执行一次运行时权限迁移。
+以下示例表示升级到 `0.1.6`。从 `v0.1.3` 或更早的 root 运行版本升级时，需要在启动新版本前执行一次运行时权限迁移。
 
 ### 1. 升级前创建数据库备份
 
@@ -280,7 +280,7 @@ code .env.release
 修改：
 
 ```dotenv
-RANDOM_REMINDER_IMAGE=ghcr.io/just-createone/random-reminder:0.1.5
+RANDOM_REMINDER_IMAGE=ghcr.io/just-createone/random-reminder:0.1.6
 ```
 
 ### 3. 检查配置
@@ -320,7 +320,7 @@ docker compose `
     stop app
 ```
 
-使用已经拉取的 `v0.1.5` 镜像预览迁移目标：
+使用已经拉取的 `v0.1.6` 镜像预览迁移目标：
 
 ```powershell
 docker compose `

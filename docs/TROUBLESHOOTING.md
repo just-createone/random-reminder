@@ -2,7 +2,7 @@
 
 本文档整理随机提醒器在本地开发、Docker 部署、数据库维护、通知和 PWA 使用过程中可能遇到的问题。
 
-当前版本：`v0.1.5`
+当前版本：`v0.1.6`
 
 ---
 
@@ -455,7 +455,7 @@ docker inspect `
 预期类似：
 
 ```text
-ghcr.io/just-createone/random-reminder:0.1.5
+ghcr.io/just-createone/random-reminder:0.1.6
 ```
 
 版本不正确时：
@@ -735,7 +735,7 @@ docker run `
     --rm `
     --pull never `
     --mount "type=bind,source=$vapidHostPath,target=/app/secrets/vapid" `
-    ghcr.io/just-createone/random-reminder:0.1.5 `
+    ghcr.io/just-createone/random-reminder:0.1.6 `
     python /app/scripts/generate_vapid_keys.py
 ```
 
@@ -964,7 +964,7 @@ git -c http.proxy=http://127.0.0.1:7897 `
 ```powershell
 git -c http.proxy=http://127.0.0.1:7897 `
     -c http.version=HTTP/1.1 `
-    push origin v0.1.5
+    push origin v0.1.6
 ```
 
 检查远程：
@@ -1097,3 +1097,21 @@ README 和文档中的邮箱示例应使用：
 ```text
 your-email@example.com
 ```
+
+### production 测试推送接口返回 `422`
+
+`v0.1.5` 将 `/api/push/test-send` 从 production OpenAPI 中隐藏，但路由仍然注册。无请求体 POST 请求会先经过 FastAPI 参数校验，因此可能在进入 handler 内的 `404` 防护之前返回：
+
+```text
+422 Unprocessable Entity
+```
+
+`v0.1.6` 改为只在 `DEBUG=True` 时注册该测试路由。production 环境应同时满足：
+
+```text
+/api/push/test-send 不出现在 OpenAPI
+/api/push/test-send 不存在于 FastAPI APIRoute 列表
+```
+
+该问题与数据库权限、Web Push 订阅或 VAPID 密钥无关。升级到 `v0.1.6` 后无需修改数据库。
+

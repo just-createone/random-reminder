@@ -15,15 +15,12 @@ from backend.services.push_subscription_service import (
     PushSubscriptionService,
 )
 
-
 router = APIRouter(
     prefix="/api/push",
     tags=["Push"],
 )
 
-push_subscription_service = (
-    PushSubscriptionService()
-)
+push_subscription_service = PushSubscriptionService()
 web_push_service = WebPushService()
 
 
@@ -79,9 +76,7 @@ class PushSubscriptionResponse(BaseModel):
     updated_at: str | None
 
 
-class PushSubscriptionDeleteResponse(
-    BaseModel
-):
+class PushSubscriptionDeleteResponse(BaseModel):
     """停用推送订阅后的响应数据。"""
 
     success: bool
@@ -93,6 +88,7 @@ class VapidPublicKeyResponse(BaseModel):
     """返回浏览器订阅需要的 VAPID 公钥。"""
 
     public_key: str
+
 
 class WebPushTestRequest(BaseModel):
     """发送测试 Web Push 的请求数据。"""
@@ -144,19 +140,15 @@ def save_push_subscription(
     """保存或更新浏览器推送订阅。"""
 
     try:
-        subscription = (
-            push_subscription_service.subscribe(
-                endpoint=request.endpoint,
-                p256dh=request.keys.p256dh,
-                auth=request.keys.auth,
-                user_agent=user_agent,
-            )
+        subscription = push_subscription_service.subscribe(
+            endpoint=request.endpoint,
+            p256dh=request.keys.p256dh,
+            auth=request.keys.auth,
+            user_agent=user_agent,
         )
 
         if subscription.id is None:
-            raise RuntimeError(
-                "推送订阅缺少数据库 ID"
-            )
+            raise RuntimeError("推送订阅缺少数据库 ID")
 
         return PushSubscriptionResponse(
             id=subscription.id,
@@ -168,26 +160,20 @@ def save_push_subscription(
 
     except ValueError as error:
         raise HTTPException(
-            status_code=(
-                status.HTTP_400_BAD_REQUEST
-            ),
+            status_code=(status.HTTP_400_BAD_REQUEST),
             detail=str(error),
         ) from error
 
     except RuntimeError as error:
         raise HTTPException(
-            status_code=(
-                status.HTTP_500_INTERNAL_SERVER_ERROR
-            ),
+            status_code=(status.HTTP_500_INTERNAL_SERVER_ERROR),
             detail=str(error),
         ) from error
 
 
 @router.delete(
     "/subscriptions",
-    response_model=(
-        PushSubscriptionDeleteResponse
-    ),
+    response_model=(PushSubscriptionDeleteResponse),
 )
 def delete_push_subscription(
     request: PushSubscriptionDeleteRequest,
@@ -195,20 +181,15 @@ def delete_push_subscription(
     """停用浏览器推送订阅。"""
 
     try:
-        deactivated = (
-            push_subscription_service
-            .unsubscribe(
-                endpoint=request.endpoint,
-            )
+        deactivated = push_subscription_service.unsubscribe(
+            endpoint=request.endpoint,
         )
 
         if deactivated:
             message = "推送订阅已停用"
 
         else:
-            message = (
-                "推送订阅不存在或已经停用"
-            )
+            message = "推送订阅不存在或已经停用"
 
         return PushSubscriptionDeleteResponse(
             success=True,
@@ -218,25 +199,20 @@ def delete_push_subscription(
 
     except ValueError as error:
         raise HTTPException(
-            status_code=(
-                status.HTTP_400_BAD_REQUEST
-            ),
+            status_code=(status.HTTP_400_BAD_REQUEST),
             detail=str(error),
         ) from error
-    
+
+
 @router.get(
     "/vapid-public-key",
     response_model=VapidPublicKeyResponse,
 )
-def get_vapid_public_key(
-) -> VapidPublicKeyResponse:
+def get_vapid_public_key() -> VapidPublicKeyResponse:
     """读取浏览器订阅所需的公钥。"""
 
     try:
-        public_key = (
-            push_subscription_service
-            .get_public_key()
-        )
+        public_key = push_subscription_service.get_public_key()
 
         return VapidPublicKeyResponse(
             public_key=public_key,
@@ -244,18 +220,11 @@ def get_vapid_public_key(
 
     except RuntimeError as error:
         raise HTTPException(
-            status_code=(
-                status.HTTP_500_INTERNAL_SERVER_ERROR
-            ),
+            status_code=(status.HTTP_500_INTERNAL_SERVER_ERROR),
             detail=str(error),
         ) from error
-    
 
-@router.post(
-    "/test-send",
-    response_model=WebPushTestResponse,
-    include_in_schema=DEBUG,
-)
+
 def send_test_web_push(
     request: WebPushTestRequest,
 ) -> WebPushTestResponse:
@@ -263,9 +232,7 @@ def send_test_web_push(
 
     if not DEBUG:
         raise HTTPException(
-            status_code=(
-                status.HTTP_404_NOT_FOUND
-            ),
+            status_code=(status.HTTP_404_NOT_FOUND),
             detail="测试推送接口未开放",
         )
 
@@ -295,16 +262,21 @@ def send_test_web_push(
 
     except ValueError as error:
         raise HTTPException(
-            status_code=(
-                status.HTTP_400_BAD_REQUEST
-            ),
+            status_code=(status.HTTP_400_BAD_REQUEST),
             detail=str(error),
         ) from error
 
     except RuntimeError as error:
         raise HTTPException(
-            status_code=(
-                status.HTTP_500_INTERNAL_SERVER_ERROR
-            ),
+            status_code=(status.HTTP_500_INTERNAL_SERVER_ERROR),
             detail=str(error),
         ) from error
+
+
+if DEBUG:
+    router.add_api_route(
+        "/test-send",
+        send_test_web_push,
+        methods=["POST"],
+        response_model=WebPushTestResponse,
+    )

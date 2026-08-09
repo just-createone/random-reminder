@@ -4,7 +4,7 @@
 
 用户可以维护自己的提醒文本，系统每天随机生成提醒计划，并在指定时间发送浏览器推送或本地系统通知。
 
-当前版本：`v0.1.5`
+当前版本：`v0.1.6`
 
 ---
 
@@ -244,7 +244,7 @@ ghcr.io/just-createone/random-reminder
 当前版本镜像：
 
 ```text
-ghcr.io/just-createone/random-reminder:0.1.5
+ghcr.io/just-createone/random-reminder:0.1.6
 ```
 
 ### 1. 创建正式环境配置
@@ -298,7 +298,7 @@ docker run `
     --rm `
     --pull never `
     --mount "type=bind,source=$vapidHostPath,target=/app/secrets/vapid" `
-    ghcr.io/just-createone/random-reminder:0.1.5 `
+    ghcr.io/just-createone/random-reminder:0.1.6 `
     python /app/scripts/generate_vapid_keys.py
 ```
 
@@ -328,7 +328,7 @@ application_server_key.txt
 sqlite3.OperationalError: attempt to write a readonly database
 ```
 
-从 `v0.1.3` 或更早版本升级到 `v0.1.5` 时，应在启动新版本前先停止应用，并使用 `v0.1.5` 镜像执行一次权限迁移。先预览：
+从 `v0.1.3` 或更早版本升级到 `v0.1.6` 时，应在启动新版本前先停止应用，并使用 `v0.1.6` 镜像执行一次权限迁移。先预览：
 
 ```powershell
 docker compose `
@@ -454,7 +454,7 @@ docker compose `
 | `RANDOM_REMINDER_BACKUP_MAX_AGE_DAYS` | 备份最大保存天数       | `90`                                           |
 | `RANDOM_REMINDER_VAPID_DIR`           | VAPID 密钥目录         | `/app/secrets/vapid`                           |
 | `VAPID_SUBJECT`                       | Web Push 联系信息      | `mailto:your-email@example.com`                |
-| `RANDOM_REMINDER_IMAGE`               | 正式 Docker 镜像       | `ghcr.io/just-createone/random-reminder:0.1.5` |
+| `RANDOM_REMINDER_IMAGE`               | 正式 Docker 镜像       | `ghcr.io/just-createone/random-reminder:0.1.6` |
 | `RANDOM_REMINDER_HOST_PORT`           | 宿主机端口             | `8000`                                         |
 
 环境变量示例文件：
@@ -640,7 +640,7 @@ python -m compileall backend tests
 python -m pytest -v
 ```
 
-`v0.1.4` 发布准备阶段历史回归共 `58` 项测试通过；`v0.1.5` 新增权限迁移测试后，完整回归共 `63` 项测试通过。
+`v0.1.4` 发布准备阶段历史回归共 `58` 项测试通过；`v0.1.5` 新增权限迁移测试后共 `63` 项；`v0.1.6` 新增 production 路由注册回归测试后，完整回归共 `64` 项并全部通过。
 
 ### 运行数据库备份测试
 
@@ -804,7 +804,7 @@ uid=10001(app)
 gid=10001(app)
 ```
 
-production 环境中的 `/api/push/test-send` 仍会返回 `404`，并且不会出现在 OpenAPI `/docs` 中。
+从 `v0.1.6` 起，production 环境不会注册 `/api/push/test-send` 路由，并且该接口不会出现在 OpenAPI `/docs` 中；开发环境仍可注册该测试接口。
 
 ---
 
@@ -853,13 +853,13 @@ nothing to commit, working tree clean
 版本标签示例：
 
 ```text
-v0.1.5
+v0.1.6
 ```
 
 正式镜像标签示例：
 
 ```text
-ghcr.io/just-createone/random-reminder:0.1.5
+ghcr.io/just-createone/random-reminder:0.1.6
 ghcr.io/just-createone/random-reminder:0.1
 ghcr.io/just-createone/random-reminder:latest
 ```
@@ -954,7 +954,7 @@ docker compose `
 ## 当前版本
 
 ```text
-v0.1.5
+v0.1.6
 ```
 
 当前版本已经完成：
@@ -973,7 +973,7 @@ v0.1.5
 - GHCR 正式镜像发布
 - Docker 非 root 用户运行
 - Release 镜像内置 VAPID 密钥生成脚本
-- production OpenAPI 隐藏测试推送接口
+- production 环境不注册测试推送路由，OpenAPI 同时隐藏该接口
 - 旧 root 部署升级到非 root 镜像的一次性权限迁移工具
 - 权限迁移完成后继续以 UID/GID `10001` 运行
 - 数据库备份
@@ -986,7 +986,7 @@ v0.1.5
 
 - 完成 PWA 独立窗口最终验收
 - 完成 Git 完整历史敏感信息检查
-- 发布并验证 `v0.1.5` 正式多架构镜像
+- 发布并验证 `v0.1.6` 正式多架构镜像
 - 启动 5 至 10 人首批真实用户测试
 - 根据用户反馈确定 `v0.2.0` 功能范围
 - 继续优化移动端体验与商业化验证
