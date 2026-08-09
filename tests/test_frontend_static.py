@@ -44,3 +44,41 @@ def test_index_notification_control_ids_are_unique() -> None:
         "pushSubscriptionDescription",
     ):
         assert content.count(f'id="{element_id}"') == 1
+
+
+def test_reminder_editing_uses_existing_put_api() -> None:
+    content = (
+        PROJECT_ROOT
+        / "frontend"
+        / "js"
+        / "reminders.js"
+    ).read_text(
+        encoding="utf-8",
+    )
+
+    assert "startEditingReminder" in content
+    assert "saveReminderEdit" in content
+    assert "cancelEditingReminder" in content
+    assert "let editingReminder = null;" in content
+    assert "textarea.value.trim()" in content
+    assert "提醒内容不能为空" in content
+    assert 'apiPut(`/api/reminders/${id}`, {' in content
+    assert "content: content" in content
+    assert "提醒保存成功" in content
+    assert "fetch(" not in content
+
+
+def test_reminder_editing_restores_existing_actions() -> None:
+    content = (
+        PROJECT_ROOT
+        / "frontend"
+        / "js"
+        / "reminders.js"
+    ).read_text(
+        encoding="utf-8",
+    )
+
+    assert "createReminderActionsHtml" in content
+    assert "data-reminder-enabled" in content
+    assert "cancelEditingReminder();" in content
+    assert "apiPatch(`/api/reminders/${id}/enabled`" in content

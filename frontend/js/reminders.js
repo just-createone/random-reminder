@@ -1,3 +1,5 @@
+let editingReminder = null;
+
 /**
  * 加载提醒列表
  */
@@ -8,6 +10,8 @@ async function loadReminders() {
     const result = await apiGet("/api/reminders");
 
     const reminders = result.data;
+
+    editingReminder = null;
 
     if (reminders.length === 0) {
       container.innerHTML = `
@@ -108,7 +112,11 @@ async function toggleReminder(id, enabled) {
 function createReminderHtml(reminder) {
   return `
 
-    <div class="reminder-item">
+    <div
+        class="reminder-item"
+        data-reminder-id="${reminder.id}"
+        data-reminder-enabled="${reminder.enabled}"
+    >
 
 
         <div class="reminder-content">
@@ -120,6 +128,20 @@ function createReminderHtml(reminder) {
 
 
         <div class="reminder-actions">
+
+            ${createReminderActionsHtml(reminder)}
+
+        </div>
+
+
+    </div>
+
+
+    `;
+}
+
+function createReminderActionsHtml(reminder) {
+  return `
 
 
             <label>
@@ -146,8 +168,25 @@ function createReminderHtml(reminder) {
 
 
 
+            <button
+            type="button"
+            onclick="
+            startEditingReminder(
+                ${reminder.id}
+            )
+            "
+
+            >
+
+            编辑
+
+            </button>
+
+
+
 
             <button
+            type="button"
 
             onclick="
             deleteReminder(
@@ -163,13 +202,109 @@ function createReminderHtml(reminder) {
 
 
 
-        </div>
+    `;
+}
 
+function startEditingReminder(id) {
+  if (editingReminder) {
+    if (editingReminder.id === id) {
+      editingReminder.textarea.focus();
+      return;
+    }
 
-    </div>
+    cancelEditingReminder();
+  }
 
+  const item = document.querySelector(
+    `[data-reminder-id="${id}"]`
+  );
+  const contentElement = item.querySelector(".reminder-content");
+  const actionsElement = item.querySelector(".reminder-actions");
+  const textarea = document.createElement("textarea");
+
+  textarea.className = "reminder-edit-input";
+  textarea.rows = 4;
+  textarea.setAttribute("aria-label", "编辑提醒内容");
+  textarea.value = contentElement.textContent.trim();
+
+  editingReminder = {
+    id: id,
+    item: item,
+    content: textarea.value,
+    enabled: item.dataset.reminderEnabled === "true",
+    contentElement: contentElement,
+    actionsElement: actionsElement,
+    textarea: textarea,
+  };
+
+  contentElement.replaceChildren(textarea);
+  actionsElement.innerHTML = createReminderEditActionsHtml(id);
+  textarea.focus();
+}
+
+function createReminderEditActionsHtml(id) {
+  return `
+
+            <button
+            type="button"
+            onclick="saveReminderEdit(${id})"
+            >
+            保存
+            </button>
+
+            <button
+            type="button"
+            class="secondary-button"
+            onclick="cancelEditingReminder()"
+            >
+            取消
+            </button>
 
     `;
+}
+
+function cancelEditingReminder() {
+  if (!editingReminder) {
+    return;
+  }
+
+  const reminder = editingReminder;
+
+  reminder.contentElement.textContent = reminder.content;
+  reminder.actionsElement.innerHTML = createReminderActionsHtml(reminder);
+  editingReminder = null;
+}
+
+async function saveReminderEdit(id) {
+  if (!editingReminder || editingReminder.id !== id) {
+    return;
+  }
+
+  const content = editingReminder.textarea.value.trim();
+
+  if (!content) {
+    showMessage("提醒内容不能为空", "error");
+    editingReminder.textarea.focus();
+    return;
+  }
+
+  try {
+    const result = await apiPut(`/api/reminders/${id}`, {
+      content: content,
+    });
+    const reminder = result.data;
+
+    editingReminder.item.dataset.reminderEnabled = String(reminder.enabled);
+    editingReminder.contentElement.textContent = reminder.content;
+    editingReminder.actionsElement.innerHTML = createReminderActionsHtml(
+      reminder
+    );
+    editingReminder = null;
+
+    showMessage("提醒保存成功");
+  } catch (error) {
+    showMessage(error.message, "error");
+  }
 }
 
 function escapeHtml(value) {
