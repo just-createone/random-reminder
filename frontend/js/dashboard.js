@@ -58,7 +58,7 @@ async function loadReminderStatus() {
             "status-badge status-badge-error";
 
         description.textContent =
-            `无法读取设置：${error.message}`;
+            "暂时无法读取提醒设置，请稍后重试。";
     }
 }
 
@@ -132,7 +132,7 @@ async function loadTodaySchedule() {
 
         container.innerHTML = `
             <p class="error-message">
-                加载失败：${escapeHtml(error.message)}
+                暂时无法加载今日计划，请稍后重试。
             </p>
         `;
 
@@ -191,7 +191,10 @@ async function generateTodaySchedule() {
 ]);
 
     } catch (error) {
-        alert(`生成失败：${error.message}`);
+        showMessage(
+            "生成今日计划失败，请稍后重试。",
+            "error"
+        );
 
     } finally {
         setRegenerateButtonLoading(false);
@@ -224,7 +227,10 @@ async function regenerateTodaySchedule() {
 ]);
 
     } catch (error) {
-        alert(`重新生成失败：${error.message}`);
+        showMessage(
+            "重新生成今日计划失败，请稍后重试。",
+            "error"
+        );
 
     } finally {
         setRegenerateButtonLoading(false);
@@ -482,7 +488,7 @@ async function loadNotificationHistory() {
 
         container.innerHTML = `
             <p class="error-message">
-                加载失败：${escapeHtml(error.message)}
+                暂时无法加载通知记录，请稍后重试。
             </p>
         `;
     }

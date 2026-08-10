@@ -16,7 +16,7 @@ async function loadReminders() {
     if (reminders.length === 0) {
       container.innerHTML = `
             <p>
-            暂无提醒内容
+            还没有提醒，先创建第一条提醒。
             </p>
             `;
 
@@ -27,8 +27,7 @@ async function loadReminders() {
   } catch (error) {
     container.innerHTML = `
         <p class="error-message">
-        加载失败：
-        ${escapeHtml(error.message)}
+        暂时无法加载提醒，请稍后重试。
         </p>
         `;
   }
@@ -62,7 +61,7 @@ async function createReminder() {
     await loadReminders();
   } catch (error) {
     showMessage(
-        error.message,
+        "添加提醒失败，请稍后重试。",
         "error"
     );
   }
@@ -87,22 +86,28 @@ async function deleteReminder(id) {
 );
     await loadReminders();
   } catch (error) {
-    showMessage(error.message, "error");
+    showMessage("删除提醒失败，请稍后重试。", "error");
   }
 }
 
 /**
  * 修改启用状态
  */
-async function toggleReminder(id, enabled) {
-  try {
-    await apiPatch(`/api/reminders/${id}/enabled`, {
-      enabled: enabled,
-    });
+async function toggleReminder(id, desiredEnabled, checkbox) {
+  const previousEnabled = !desiredEnabled;
 
-    await loadReminders();
+  try {
+    const result = await apiPatch(`/api/reminders/${id}/enabled`, {
+      enabled: desiredEnabled,
+    });
+    const reminder = result.data;
+    const item = checkbox.closest(".reminder-item");
+
+    checkbox.checked = reminder.enabled;
+    item.dataset.reminderEnabled = String(reminder.enabled);
   } catch (error) {
-    alert(error.message);
+    checkbox.checked = previousEnabled;
+    showMessage("更新提醒状态失败，请稍后重试。", "error");
   }
 }
 
@@ -154,7 +159,8 @@ function createReminderActionsHtml(reminder) {
             onchange="
             toggleReminder(
                 ${reminder.id},
-                this.checked
+                this.checked,
+                this
             )
             "
 
@@ -303,7 +309,7 @@ async function saveReminderEdit(id) {
 
     showMessage("提醒保存成功");
   } catch (error) {
-    showMessage(error.message, "error");
+    showMessage("保存提醒失败，请稍后重试。", "error");
   }
 }
 

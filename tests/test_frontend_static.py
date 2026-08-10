@@ -4,6 +4,20 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
+def _source_between(
+    content: str,
+    start_marker: str,
+    end_marker: str,
+) -> str:
+    start = content.index(start_marker)
+    end = content.index(
+        end_marker,
+        start,
+    )
+
+    return content[start:end]
+
+
 def test_settings_page_loads_ui_before_settings_script() -> None:
     content = (
         PROJECT_ROOT
@@ -82,3 +96,161 @@ def test_reminder_editing_restores_existing_actions() -> None:
     assert "data-reminder-enabled" in content
     assert "cancelEditingReminder();" in content
     assert "apiPatch(`/api/reminders/${id}/enabled`" in content
+
+
+def test_reminder_feedback_uses_friendly_messages() -> None:
+    content = (
+        PROJECT_ROOT
+        / "frontend"
+        / "js"
+        / "reminders.js"
+    ).read_text(
+        encoding="utf-8",
+    )
+
+    load_source = _source_between(
+        content,
+        "async function loadReminders",
+        "/**\n * 创建提醒",
+    )
+    create_source = _source_between(
+        content,
+        "async function createReminder",
+        "/**\n * 删除提醒",
+    )
+    delete_source = _source_between(
+        content,
+        "async function deleteReminder",
+        "/**\n * 修改启用状态",
+    )
+    toggle_source = _source_between(
+        content,
+        "async function toggleReminder",
+        "/**\n * 生成提醒 HTML",
+    )
+    edit_source = _source_between(
+        content,
+        "async function saveReminderEdit",
+        "function escapeHtml",
+    )
+
+    assert "还没有提醒，先创建第一条提醒。" in load_source
+    assert "暂时无法加载提醒，请稍后重试。" in load_source
+    assert "error.message" not in load_source
+    assert "添加提醒失败，请稍后重试。" in create_source
+    assert "error.message" not in create_source
+    assert "删除提醒失败，请稍后重试。" in delete_source
+    assert "error.message" not in delete_source
+    assert "alert(" not in toggle_source
+    assert "更新提醒状态失败，请稍后重试。" in toggle_source
+    assert "showMessage(" in toggle_source
+    assert "保存提醒失败，请稍后重试。" in edit_source
+    assert "error.message" not in edit_source
+
+
+def test_reminder_toggle_rolls_back_checkbox_after_failure() -> None:
+    content = (
+        PROJECT_ROOT
+        / "frontend"
+        / "js"
+        / "reminders.js"
+    ).read_text(
+        encoding="utf-8",
+    )
+
+    toggle_source = _source_between(
+        content,
+        "async function toggleReminder",
+        "/**\n * 生成提醒 HTML",
+    )
+
+    assert "this.checked," in content
+    assert "const previousEnabled = !desiredEnabled;" in toggle_source
+    assert "const result = await apiPatch" in toggle_source
+    assert "checkbox.checked = reminder.enabled;" in toggle_source
+    assert "item.dataset.reminderEnabled = String(reminder.enabled);" in toggle_source
+    assert "checkbox.checked = previousEnabled;" in toggle_source
+    assert "更新提醒状态失败，请稍后重试。" in toggle_source
+
+
+def test_settings_feedback_uses_friendly_messages() -> None:
+    content = (
+        PROJECT_ROOT
+        / "frontend"
+        / "js"
+        / "settings.js"
+    ).read_text(
+        encoding="utf-8",
+    )
+
+    load_source = _source_between(
+        content,
+        "async function loadSettings",
+        "/**\n * 保存设置",
+    )
+    save_source = _source_between(
+        content,
+        "async function saveSettings",
+        "/**\n * 控制时间输入框显示",
+    )
+
+    assert "alert(" not in load_source
+    assert "error.message" not in load_source
+    assert "暂时无法加载设置，请稍后重试。" in load_source
+    assert "showMessage(" in load_source
+    assert "error.message" not in save_source
+    assert "保存设置失败，请稍后重试。" in save_source
+
+
+def test_dashboard_feedback_keeps_empty_states_and_hides_errors() -> None:
+    content = (
+        PROJECT_ROOT
+        / "frontend"
+        / "js"
+        / "dashboard.js"
+    ).read_text(
+        encoding="utf-8",
+    )
+
+    status_source = _source_between(
+        content,
+        "async function loadReminderStatus",
+        "/**\n * 把设置转换为可读文字",
+    )
+    schedule_source = _source_between(
+        content,
+        "async function loadTodaySchedule",
+        "/**\n * 根据计划数量显示摘要",
+    )
+    generate_source = _source_between(
+        content,
+        "async function generateTodaySchedule",
+        "/**\n * 强制重新生成今日计划",
+    )
+    regenerate_source = _source_between(
+        content,
+        "async function regenerateTodaySchedule",
+        "/**\n * 控制重新生成按钮的加载状态",
+    )
+    history_source = _source_between(
+        content,
+        "async function loadNotificationHistory",
+        "/**\n * 更新通知历史摘要",
+    )
+
+    assert "暂时无法读取提醒设置，请稍后重试。" in status_source
+    assert "error.message" not in status_source
+    assert "暂时无法加载今日计划，请稍后重试。" in schedule_source
+    assert "error.message" not in schedule_source
+    assert "暂时无法加载通知记录，请稍后重试。" in history_source
+    assert "error.message" not in history_source
+    assert "alert(" not in generate_source
+    assert "生成今日计划失败，请稍后重试。" in generate_source
+    assert "showMessage(" in generate_source
+    assert "alert(" not in regenerate_source
+    assert "重新生成今日计划失败，请稍后重试。" in regenerate_source
+    assert "showMessage(" in regenerate_source
+    assert "今天还没有生成提醒计划。" in content
+    assert "当前没有今日计划。" in content
+    assert "今天没有等待中的提醒" in content
+    assert "当前还没有通知记录。" in content

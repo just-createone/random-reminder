@@ -74,8 +74,9 @@ async function loadSettings(){
     }catch(error){
 
 
-        alert(
-            error.message
+        showMessage(
+            "暂时无法加载设置，请稍后重试。",
+            "error"
         );
 
     }
@@ -171,7 +172,7 @@ async function saveSettings(){
 
 
         showMessage(
-    error.message,
+    "保存设置失败，请稍后重试。",
     "error"
 );
 
