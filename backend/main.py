@@ -14,6 +14,7 @@ from backend.api.settings import router as settings_router
 from backend.api.push_subscriptions import (
     router as push_subscriptions_router,
 )
+from backend.api.data import router as data_router
 
 from backend.config import (
     PROJECT_NAME,
@@ -170,6 +171,10 @@ app.include_router(
 
 app.include_router(
     push_subscriptions_router
+)
+
+app.include_router(
+    data_router
 )
 
 # PWA 文件

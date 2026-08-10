@@ -24,6 +24,20 @@
 
 ## [Unreleased]
 
+### 新增
+
+- 新增用户数据导出后端 API：`GET /api/data/export`
+- 新增用户数据导入后端 API：`POST /api/data/import`
+- 新增 data transfer service 与 repository，用于导出数据和原子导入数据
+- FastAPI 应用注册 data router
+
+### 测试
+
+- 新增数据导入/导出自动化测试
+- 路由注册测试改为根据 OpenAPI paths 验证最终公开 API
+- Task 4A 专项测试：`35 passed in 3.52s`
+- 当前开发分支完整回归：`108 passed in 10.64s`
+
 ### 计划新增
 
 - 完成 PWA 独立窗口最终验收
@@ -32,7 +46,6 @@
 - 增加提醒编辑功能
 - 增加单条提醒启用和停用
 - 优化移动端使用体验
-- 增加提醒数据导入和导出
 
 ---
 
