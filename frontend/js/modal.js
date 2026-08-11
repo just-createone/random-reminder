@@ -4,7 +4,10 @@ let modalResolve = null;
 /**
  * 显示确认弹窗
  */
-function showConfirmModal(message) {
+function showConfirmModal(
+    message,
+    confirmText = "删除"
+) {
 
     return new Promise((resolve) => {
 
@@ -33,6 +36,12 @@ function showConfirmModal(message) {
             "confirmModalMessage"
         ).textContent =
             message;
+
+
+        document.getElementById(
+            "confirmModalConfirmButton"
+        ).textContent =
+            confirmText;
 
 
         modal.classList.add(
@@ -92,6 +101,7 @@ function createModal() {
 
 
                 <button
+                id="confirmModalConfirmButton"
                 class="danger-button"
                 onclick="closeConfirmModal(true)"
                 >

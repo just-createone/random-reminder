@@ -202,6 +202,53 @@ def test_settings_feedback_uses_friendly_messages() -> None:
     assert "保存设置失败，请稍后重试。" in save_source
 
 
+def test_settings_data_management_uses_existing_data_apis() -> None:
+    page_content = (
+        PROJECT_ROOT
+        / "frontend"
+        / "pages"
+        / "settings.html"
+    ).read_text(
+        encoding="utf-8",
+    )
+    script_content = (
+        PROJECT_ROOT
+        / "frontend"
+        / "js"
+        / "settings.js"
+    ).read_text(
+        encoding="utf-8",
+    )
+
+    assert 'id="exportDataButton"' in page_content
+    assert 'id="importDataFile"' in page_content
+    assert 'id="importDataButton"' in page_content
+    assert '<script src="/js/modal.js"></script>' in page_content
+    assert "async function exportUserData" in script_content
+    assert '"/api/data/export"' in script_content
+    assert "URL.createObjectURL" in script_content
+    assert "async function importUserData" in script_content
+    assert "await file.text()" in script_content
+    assert "JSON.parse" in script_content
+    assert '"/api/data/import"' in script_content
+    assert "showConfirmModal" in script_content
+    assert "保留当前提醒、追加文件中的提醒，并恢复文件中的提醒设置" in script_content
+
+
+def test_confirm_modal_supports_contextual_confirm_text() -> None:
+    content = (
+        PROJECT_ROOT
+        / "frontend"
+        / "js"
+        / "modal.js"
+    ).read_text(
+        encoding="utf-8",
+    )
+
+    assert 'confirmText = "删除"' in content
+    assert "confirmModalConfirmButton" in content
+
+
 def test_dashboard_feedback_keeps_empty_states_and_hides_errors() -> None:
     content = (
         PROJECT_ROOT

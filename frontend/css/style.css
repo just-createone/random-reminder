@@ -200,6 +200,36 @@ textarea {
 }
 
 
+.data-management-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+}
+
+.data-management-file-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.data-management-divider {
+    margin: 24px 0;
+    border: 0;
+    border-top: 1px solid #eee;
+}
+
+.data-management-file-name {
+    overflow-wrap: anywhere;
+}
+
+
 
 input[type="number"],
 input[type="time"] {

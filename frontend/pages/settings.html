@@ -166,6 +166,89 @@ id="endTime"
 
 
 <h2>
+数据管理
+</h2>
+
+
+<p class="muted-text">
+导出提醒内容和提醒设置，方便在新环境中恢复。
+</p>
+
+
+<div class="data-management-actions">
+
+
+<button
+type="button"
+id="exportDataButton"
+>
+导出数据
+</button>
+
+
+</div>
+
+
+<hr class="data-management-divider">
+
+
+<h3>
+导入数据
+</h3>
+
+
+<p class="muted-text">
+导入会保留当前提醒、追加文件中的提醒，并恢复文件中的提醒设置。
+</p>
+
+
+<div class="data-management-actions">
+
+
+<label
+class="secondary-button"
+for="importDataFile"
+>
+选择 JSON 文件
+</label>
+
+
+<input
+type="file"
+id="importDataFile"
+class="data-management-file-input"
+accept="application/json,.json"
+>
+
+
+<button
+type="button"
+id="importDataButton"
+disabled
+>
+导入数据
+</button>
+
+
+</div>
+
+
+<p
+id="importDataFileName"
+class="muted-text data-management-file-name"
+>
+尚未选择文件
+</p>
+
+
+</section>
+
+
+
+<section class="card">
+
+
+<h2>
 提醒频率
 </h2>
 
@@ -247,6 +330,8 @@ onclick="saveSettings()"
 <script src="/js/api.js"></script>
 
 <script src="/js/ui.js"></script>
+
+<script src="/js/modal.js"></script>
 
 <script src="/js/settings.js"></script>
 
