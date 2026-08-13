@@ -1,9 +1,11 @@
 from dataclasses import asdict
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
 from backend.services.settings_service import SettingsService
+from backend.api.auth import require_current_user
+from backend.domain.user import User
 
 
 router = APIRouter(
@@ -59,10 +61,12 @@ class SettingsUpdateRequest(BaseModel):
 
 
 @router.get("")
-def get_settings() -> dict:
+def get_settings(
+    current_user: User = Depends(require_current_user),
+) -> dict:
     """读取当前提醒设置。"""
 
-    settings = settings_service.get_settings()
+    settings = settings_service.get_settings(current_user.id)
 
     return {
         "success": True,
@@ -74,6 +78,7 @@ def get_settings() -> dict:
 @router.put("")
 def update_settings(
     request: SettingsUpdateRequest,
+    current_user: User = Depends(require_current_user),
 ) -> dict:
     """更新提醒设置。"""
 
@@ -85,6 +90,7 @@ def update_settings(
             end_time=request.end_time,
             times_per_day=request.times_per_day,
             minimum_interval=request.minimum_interval,
+            user_id=current_user.id,
         )
 
         return {

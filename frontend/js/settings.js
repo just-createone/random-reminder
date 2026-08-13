@@ -510,4 +510,8 @@ document.getElementById(
 );
 
 
-loadSettings();
+authenticatedUserReady.then((user) => {
+    if (user) {
+        loadSettings();
+    }
+});

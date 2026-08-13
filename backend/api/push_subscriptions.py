@@ -1,9 +1,12 @@
 from fastapi import (
     APIRouter,
+    Depends,
     Header,
     HTTPException,
     status,
 )
+from backend.api.auth import require_current_user
+from backend.domain.user import User
 from pydantic import BaseModel, Field
 
 from backend.config import DEBUG
@@ -136,11 +139,13 @@ def save_push_subscription(
     user_agent: str | None = Header(
         default=None,
     ),
+    current_user: User = Depends(require_current_user),
 ) -> PushSubscriptionResponse:
     """保存或更新浏览器推送订阅。"""
 
     try:
         subscription = push_subscription_service.subscribe(
+            user_id=current_user.id,
             endpoint=request.endpoint,
             p256dh=request.keys.p256dh,
             auth=request.keys.auth,
@@ -177,11 +182,13 @@ def save_push_subscription(
 )
 def delete_push_subscription(
     request: PushSubscriptionDeleteRequest,
+    current_user: User = Depends(require_current_user),
 ) -> PushSubscriptionDeleteResponse:
     """停用浏览器推送订阅。"""
 
     try:
         deactivated = push_subscription_service.unsubscribe(
+            user_id=current_user.id,
             endpoint=request.endpoint,
         )
 
@@ -227,6 +234,7 @@ def get_vapid_public_key() -> VapidPublicKeyResponse:
 
 def send_test_web_push(
     request: WebPushTestRequest,
+    current_user: User = Depends(require_current_user),
 ) -> WebPushTestResponse:
     """向所有有效订阅发送测试 Web Push。"""
 
@@ -237,7 +245,8 @@ def send_test_web_push(
         )
 
     try:
-        result = web_push_service.send_to_all(
+        result = web_push_service.send_to_user(
+            user_id=current_user.id,
             title=request.title,
             body=request.message,
             url=request.url,

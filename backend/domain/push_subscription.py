@@ -6,6 +6,7 @@ class PushSubscription:
     """表示一个浏览器 Web Push 订阅。"""
 
     id: int | None
+    user_id: int | None
     endpoint: str
     p256dh: str
     auth: str

@@ -18,6 +18,7 @@ from backend.main import app
 from backend.services.data_transfer_service import (
     DataTransferService,
 )
+from backend.services.auth_service import AuthService
 
 
 def valid_payload() -> dict[str, object]:
@@ -614,8 +615,12 @@ def test_data_routes_are_registered_and_follow_api_response_style(
     assert "/api/data/export" in registered_paths
     assert "/api/data/import" in registered_paths
 
-    export_response = export_user_data()
-    import_response = import_user_data(valid_payload())
+    user = AuthService().register(
+        "api-test@example.com",
+        "password-123",
+    )
+    export_response = export_user_data(user)
+    import_response = import_user_data(valid_payload(), user)
 
     assert export_response["success"] is True
     assert set(export_response) == {"success", "data", "message"}
@@ -634,9 +639,13 @@ def test_import_api_returns_400_for_validation_errors(
 ) -> None:
     invalid_payload = deepcopy(valid_payload())
     invalid_payload["format"] = "wrong"
+    user = AuthService().register(
+        "validation-test@example.com",
+        "password-123",
+    )
 
     with pytest.raises(HTTPException) as error_info:
-        import_user_data(invalid_payload)
+        import_user_data(invalid_payload, user)
 
     assert error_info.value.status_code == 400
     assert "不支持" in str(error_info.value.detail)

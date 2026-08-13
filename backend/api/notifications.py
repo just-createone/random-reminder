@@ -1,9 +1,11 @@
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
 from backend.notification.notification_service import (
     NotificationService,
 )
+from backend.api.auth import require_current_user
+from backend.domain.user import User
 
 
 router = APIRouter(
@@ -89,11 +91,13 @@ def get_notification_history(
         ge=1,
         le=100,
     ),
+    current_user: User = Depends(require_current_user),
 ) -> list[NotificationHistoryResponse]:
     """查询最近的通知历史。"""
 
     items = notification_service.get_recent_history(
         limit=limit,
+        user_id=current_user.id,
     )
 
     return [

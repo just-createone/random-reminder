@@ -1,8 +1,10 @@
 from typing import Any
 
-from fastapi import APIRouter, Body, HTTPException, status
+from fastapi import APIRouter, Body, Depends, HTTPException, status
 
 from backend.config import logger
+from backend.api.auth import require_current_user
+from backend.domain.user import User
 from backend.services.data_transfer_service import (
     DataTransferService,
 )
@@ -17,11 +19,13 @@ data_transfer_service = DataTransferService()
 
 
 @router.get("/export")
-def export_user_data() -> dict[str, object]:
+def export_user_data(
+    current_user: User = Depends(require_current_user),
+) -> dict[str, object]:
     """Export portable reminders and settings without runtime data."""
 
     try:
-        data = data_transfer_service.export_data()
+        data = data_transfer_service.export_data(current_user.id)
 
         return {
             "success": True,
@@ -43,11 +47,15 @@ def export_user_data() -> dict[str, object]:
 @router.post("/import")
 def import_user_data(
     payload: Any = Body(...),
+    current_user: User = Depends(require_current_user),
 ) -> dict[str, object]:
     """Validate and atomically import a portable user-data export."""
 
     try:
-        result = data_transfer_service.import_data(payload)
+        result = data_transfer_service.import_data(
+            payload,
+            current_user.id,
+        )
 
         return {
             "success": True,

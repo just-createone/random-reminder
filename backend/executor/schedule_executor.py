@@ -1,23 +1,17 @@
 import threading
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 from backend.config import logger
-from backend.notification.notification_service import (
-    NotificationService,
-)
-from backend.repository.notification_repository import (
-    NotificationRepository,
-)
-from backend.services.web_push_service import (
-    WebPushService,
-)
-from backend.services.schedule_service import (
-    ScheduleService,
-)
+from backend.notification.notification_service import NotificationService
+from backend.repository.notification_repository import NotificationRepository
+from backend.repository.user_repository import UserRepository
+from backend.services.schedule_service import ScheduleService
+from backend.services.web_push_service import WebPushService
 
 
 class ScheduleExecutor:
-    """定时检查并发送已经到期的提醒通知。"""
+    """Check each enabled user's local schedule and deliver only to that user."""
 
     def __init__(
         self,
@@ -25,315 +19,157 @@ class ScheduleExecutor:
         notification_service: NotificationService | None = None,
         web_push_service: WebPushService | None = None,
         schedule_service: ScheduleService | None = None,
+        user_repository: UserRepository | None = None,
         check_interval_seconds: int = 30,
         schedule_refresh_seconds: int = 300,
         overdue_grace_minutes: int = 5,
     ) -> None:
-        self.notification_repository = (
-            notification_repository or NotificationRepository()
-        )
-
+        self.notification_repository = notification_repository or NotificationRepository()
         self.notification_service = notification_service or NotificationService()
-
         self.web_push_service = web_push_service or WebPushService()
-
         self.schedule_service = schedule_service or ScheduleService()
-
+        self.user_repository = user_repository or UserRepository()
         self.check_interval_seconds = check_interval_seconds
 
         if overdue_grace_minutes < 0:
-            raise ValueError("过期提醒宽限时间不能小于 0")
-
+            raise ValueError("Overdue reminder grace period cannot be negative")
         self.overdue_grace_minutes = overdue_grace_minutes
-
-        self.schedule_refresh_interval = timedelta(
-            seconds=schedule_refresh_seconds,
-        )
-
-        self._last_schedule_refresh_at: datetime | None = None
-
-        self._paused_by_settings = False
-
+        self.schedule_refresh_interval = timedelta(seconds=schedule_refresh_seconds)
+        self._last_schedule_refresh_at: dict[int, datetime] = {}
         self._stop_event = threading.Event()
-
         self._thread: threading.Thread | None = None
 
     def start(self) -> None:
-        """启动后台执行线程。"""
-
         if self._thread is not None and self._thread.is_alive():
             logger.warning("Schedule executor is already running")
             return
-
         self._stop_event.clear()
-
         self._thread = threading.Thread(
             target=self._run,
             name="schedule-executor",
             daemon=True,
         )
-
         self._thread.start()
-
         logger.info("Schedule executor started")
 
     def stop(self) -> None:
-        """停止后台执行线程。"""
-
         self._stop_event.set()
-
         thread = self._thread
-
-        if (
-            thread is not None
-            and thread.is_alive()
-            and thread is not threading.current_thread()
-        ):
+        if thread is not None and thread.is_alive() and thread is not threading.current_thread():
             thread.join(timeout=2)
-
         self._thread = None
-
         logger.info("Schedule executor stopped")
 
     def ensure_today_schedule(
         self,
-        now: datetime | None = None,
+        user_id: int,
+        time_zone: str,
+        now: datetime,
         force_check: bool = False,
     ) -> None:
-        """检查并自动创建今天的提醒计划。"""
-
-        current_time = now or datetime.now()
-
-        if not force_check and not self._should_refresh_schedule(current_time):
+        if not force_check and not self._should_refresh_schedule(user_id, now):
             return
-
-        self._last_schedule_refresh_at = current_time
-
+        self._last_schedule_refresh_at[user_id] = now
         try:
-            existing_schedules = self.schedule_service.get_today_schedule()
-
+            existing_schedules = self.schedule_service.get_today_schedule(
+                user_id=user_id,
+                time_zone=time_zone,
+                now=now,
+            )
             schedules = self.schedule_service.generate_today_schedule(
                 force=False,
-                now=current_time,
+                now=now,
+                user_id=user_id,
+                time_zone=time_zone,
             )
-
             if not existing_schedules:
                 logger.info(
-                    "Daily schedule generated " "automatically: " "date=%s, count=%s",
-                    current_time.date().isoformat(),
+                    "Daily schedule generated automatically: user_id=%s date=%s count=%s",
+                    user_id,
+                    now.date().isoformat(),
                     len(schedules),
                 )
-
         except ValueError as error:
-            logger.info(
-                "Daily schedule was not generated: %s",
-                error,
-            )
-
+            logger.info("Daily schedule was not generated for user_id=%s: %s", user_id, error)
         except Exception:
-            logger.exception("Automatic daily schedule check failed")
+            logger.exception("Automatic daily schedule check failed for user_id=%s", user_id)
 
-    def _should_refresh_schedule(
-        self,
-        now: datetime,
-    ) -> bool:
-        """判断是否需要重新检查今日计划。"""
-
-        last_refresh = self._last_schedule_refresh_at
-
-        if last_refresh is None:
-            return True
-
-        if last_refresh.date() != now.date():
-            return True
-
-        elapsed = now - last_refresh
-
-        return elapsed >= self.schedule_refresh_interval
-
-    def run_once(self) -> None:
-        """立即执行一次到期通知检查。"""
-
-        now = datetime.now()
-        # 1. 总开关关闭时暂停整个提醒执行流程。
-        if not self.schedule_service.is_enabled():
-            if not self._paused_by_settings:
-                logger.info(
-                    "Schedule executor paused: " "random reminders are disabled"
-                )
-
-                self._paused_by_settings = True
-
-            return
-
-        if self._paused_by_settings:
-            logger.info("Schedule executor resumed: " "random reminders are enabled")
-
-            self._paused_by_settings = False
-
-        # 1. 确保今天有提醒计划。
-        self.ensure_today_schedule(
-            now=now,
+    def _should_refresh_schedule(self, user_id: int, now: datetime) -> bool:
+        last_refresh = self._last_schedule_refresh_at.get(user_id)
+        return (
+            last_refresh is None
+            or now - last_refresh >= self.schedule_refresh_interval
         )
 
-        # 2. 跳过超过宽限时间的过期提醒。
-        skipped_count = self.schedule_service.skip_overdue_pending(
-            now=now,
-            grace_minutes=(self.overdue_grace_minutes),
-        )
+    def run_once(self, now: datetime | None = None) -> None:
+        """Run one safe delivery cycle for every enabled user."""
+        current_utc = now or datetime.now(timezone.utc)
+        if current_utc.tzinfo is None:
+            current_utc = current_utc.replace(tzinfo=timezone.utc)
 
-        if skipped_count > 0:
-            logger.info(
-                "Overdue reminder schedules skipped: " "count=%s, grace_minutes=%s",
-                skipped_count,
-                self.overdue_grace_minutes,
+        for user in self.user_repository.get_enabled_users():
+            local_now = current_utc.astimezone(ZoneInfo(user.time_zone))
+            self.ensure_today_schedule(user.id, user.time_zone, local_now)
+            skipped_count = self.schedule_service.skip_overdue_pending(
+                now=local_now,
+                grace_minutes=self.overdue_grace_minutes,
+                user_id=user.id,
+                time_zone=user.time_zone,
             )
+            if skipped_count:
+                logger.info("Overdue schedules skipped: user_id=%s count=%s", user.id, skipped_count)
 
-        # 3. 查询今天已经到达执行时间、
-        #    并且仍处于 pending 状态的通知。
-        schedule_date = now.date().isoformat()
-
-        current_time = now.strftime("%H:%M:%S")
-
-        tasks = self.notification_repository.get_due_pending(
-            schedule_date=schedule_date,
-            current_time=current_time,
-        )
-
-        if not tasks:
-            return
-
-        logger.info(
-            "Found %s due notification tasks",
-            len(tasks),
-        )
-
-        # 4. 逐条发送通知。
-        for task in tasks:
-            try:
-                delivery_channel = self._send_notification(
-                    message=(task.content_snapshot),
-                )
-
-                updated = self.notification_repository.mark_sent(
-                    notification_id=(task.notification_id),
-                    schedule_id=(task.schedule_id),
-                )
-
-                if not updated:
-                    logger.warning(
-                        "Notification status was not updated: "
-                        "notification_id=%s, "
-                        "schedule_id=%s",
-                        task.notification_id,
-                        task.schedule_id,
-                    )
-
-                    continue
-
-                logger.info(
-                    "Notification sent: "
-                    "channel=%s, "
-                    "notification_id=%s, "
-                    "schedule_id=%s",
-                    delivery_channel,
-                    task.notification_id,
-                    task.schedule_id,
-                )
-
-            except Exception:
-                logger.exception(
-                    "Failed to send notification: "
-                    "notification_id=%s, "
-                    "schedule_id=%s",
-                    task.notification_id,
-                    task.schedule_id,
-                )
-
+            tasks = self.notification_repository.get_due_pending(
+                schedule_date=local_now.date().isoformat(),
+                current_time=local_now.strftime("%H:%M:%S"),
+                user_id=user.id,
+            )
+            for task in tasks:
                 try:
-                    (
-                        self.notification_repository.mark_failed(
-                            notification_id=(task.notification_id),
-                            schedule_id=(task.schedule_id),
+                    channel = self._send_notification(user.id, task.content_snapshot)
+                    updated = self.notification_repository.mark_sent(
+                        notification_id=task.notification_id,
+                        schedule_id=task.schedule_id,
+                    )
+                    if updated:
+                        logger.info(
+                            "Notification sent: user_id=%s channel=%s notification_id=%s",
+                            user.id,
+                            channel,
+                            task.notification_id,
                         )
+                except Exception:
+                    logger.exception(
+                        "Failed to send notification: user_id=%s notification_id=%s",
+                        user.id,
+                        task.notification_id,
+                    )
+                    self.notification_repository.mark_failed(
+                        notification_id=task.notification_id,
+                        schedule_id=task.schedule_id,
                     )
 
-                except Exception:
-                    logger.exception("Failed to update notification " "failure status")
-
-    def _send_notification(
-        self,
-        message: str,
-    ) -> str:
-        """
-            优先发送 Web Push。
-
-            Web Push 不可用或全部失败时，
-        通过跨平台 NotificationService 回退。
-        """
-
+    def _send_notification(self, user_id: int, message: str) -> str:
         try:
-            result = self.web_push_service.send_to_all(
+            result = self.web_push_service.send_to_user(
+                user_id=user_id,
                 title="随机提醒器",
                 body=message,
                 url="/",
             )
-
-        except ValueError as error:
-            logger.info(
-                "Web Push unavailable; " "using local notification: %s",
-                error,
-            )
-
-        except RuntimeError as error:
-            logger.warning(
-                "Web Push configuration failed; " "using local notification: %s",
-                error,
-            )
-
-        except Exception:
-            logger.exception("Unexpected Web Push error; " "using local notification")
-
-        else:
-            if result.sent > 0:
-                logger.info(
-                    "Web Push delivery completed: "
-                    "total=%s, sent=%s, failed=%s, "
-                    "deactivated=%s",
-                    result.total,
-                    result.sent,
-                    result.failed,
-                    result.deactivated,
-                )
-
+            if result.sent:
                 return "web_push"
+        except (ValueError, RuntimeError) as error:
+            logger.info("Web Push unavailable for user_id=%s: %s", user_id, error)
+        except Exception:
+            logger.exception("Unexpected Web Push error for user_id=%s", user_id)
 
-            logger.warning(
-                "No Web Push subscription received "
-                "the notification; "
-                "using local notification"
-            )
-
-        system_channel = self.notification_service.send(
-            title="随机提醒器",
-            message=message,
-        )
-
-        logger.info(
-            "System notification delivered: " "channel=%s",
-            system_channel,
-        )
-
-        return system_channel
+        return self.notification_service.send(title="随机提醒器", message=message)
 
     def _run(self) -> None:
-        """后台线程循环检查到期任务。"""
-
         while not self._stop_event.is_set():
             try:
                 self.run_once()
-
             except Exception:
                 logger.exception("Schedule executor cycle failed")
-
             self._stop_event.wait(self.check_interval_seconds)

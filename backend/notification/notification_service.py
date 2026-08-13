@@ -88,6 +88,8 @@ class NotificationService:
     def get_recent_history(
         self,
         limit: int = 20,
+        user_id: int | None = None,
+        today: str | None = None,
     ) -> list[NotificationHistoryItem]:
         """查询最近的通知历史记录。"""
 
@@ -105,6 +107,8 @@ class NotificationService:
             self.notification_repository
             .get_recent_history(
                 limit=limit,
+                user_id=user_id,
+                today=today,
             )
         )
 

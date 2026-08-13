@@ -8,6 +8,7 @@ class DataTransferRepository:
 
     def get_export_data(
         self,
+        user_id: int | None = None,
     ) -> tuple[list[dict[str, object]], dict[str, object]]:
         """Return only the reminder and settings fields safe to export."""
 
@@ -20,8 +21,10 @@ class DataTransferRepository:
                 """
                 SELECT content, enabled
                 FROM reminders
+                WHERE user_id IS ?
                 ORDER BY id DESC
-                """
+                """,
+                (user_id,),
             ).fetchall()
 
             settings_row = cursor.execute(
@@ -34,8 +37,10 @@ class DataTransferRepository:
                     times_per_day,
                     minimum_interval
                 FROM settings
-                WHERE id = 1
+                WHERE user_id IS ?
                 """
+                ,
+                (user_id,),
             ).fetchone()
 
             if settings_row is None:
@@ -69,6 +74,7 @@ class DataTransferRepository:
         self,
         reminders: Sequence[tuple[str, bool]],
         settings: dict[str, object],
+        user_id: int | None = None,
     ) -> int:
         """Append reminders and restore settings in one transaction."""
 
@@ -79,11 +85,11 @@ class DataTransferRepository:
 
             cursor.executemany(
                 """
-                INSERT INTO reminders (content, enabled)
-                VALUES (?, ?)
+                INSERT INTO reminders (content, enabled, user_id)
+                VALUES (?, ?, ?)
                 """,
                 [
-                    (content, int(enabled))
+                    (content, int(enabled), user_id)
                     for content, enabled in reminders
                 ],
             )
@@ -99,7 +105,7 @@ class DataTransferRepository:
                     times_per_day = ?,
                     minimum_interval = ?,
                     updated_at = CURRENT_TIMESTAMP
-                WHERE id = 1
+                WHERE user_id IS ?
                 """,
                 (
                     int(settings["enabled"]),
@@ -108,6 +114,7 @@ class DataTransferRepository:
                     settings["end_time"],
                     settings["times_per_day"],
                     settings["minimum_interval"],
+                    user_id,
                 ),
             )
 

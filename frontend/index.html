@@ -13,7 +13,7 @@
     <meta name="theme-color" content="#ffffff" />
   </head>
 
-  <body>
+  <body class="auth-pending">
     <main class="container">
       <header class="page-header">
         <div>
@@ -24,7 +24,11 @@
           </p>
         </div>
 
-        <a class="secondary-button" href="/pages/settings.html"> 设置 </a>
+        <div class="page-header-actions">
+          <span id="currentUserEmail" class="current-user-email"></span>
+          <a class="secondary-button" href="/pages/settings.html"> 设置 </a>
+          <button id="logoutButton" class="secondary-button" type="button">退出登录</button>
+        </div>
       </header>
 
       <section class="dashboard-grid">
@@ -189,6 +193,7 @@
 
     <script src="/js/api.js"></script>
     <script src="/js/ui.js"></script>
+    <script src="/js/auth.js"></script>
     <script src="/js/modal.js"></script>
     <script src="/js/browser-notifications.js"></script>
     <script src="/js/push-subscription.js"></script>

@@ -1,6 +1,9 @@
 from dataclasses import asdict
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+
+from backend.api.auth import require_current_user
+from backend.domain.user import User
 
 from backend.services.schedule_service import (
     ScheduleService,
@@ -16,11 +19,16 @@ schedule_service = ScheduleService()
 
 
 @router.get("/today")
-def get_today_schedule() -> dict:
+def get_today_schedule(
+    current_user: User = Depends(require_current_user),
+) -> dict:
     """查询今天的提醒计划。"""
 
     schedules = (
-        schedule_service.get_today_schedule()
+        schedule_service.get_today_schedule(
+            user_id=current_user.id,
+            time_zone=current_user.time_zone,
+        )
     )
 
     return {
@@ -41,13 +49,16 @@ def generate_today_schedule(
         default=False,
         description="是否强制重新生成今天的计划",
     ),
+    current_user: User = Depends(require_current_user),
 ) -> dict:
     """生成今天的随机提醒计划。"""
 
     try:
         schedules = (
             schedule_service.generate_today_schedule(
-                force=force
+                force=force,
+                user_id=current_user.id,
+                time_zone=current_user.time_zone,
             )
         )
 

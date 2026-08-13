@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>登录 - 随机提醒器</title>
+    <link rel="stylesheet" href="/css/style.css" />
+  </head>
+  <body data-auth-page="public">
+    <main class="container auth-container">
+      <section class="card auth-card">
+        <p class="eyebrow">Random Reminder</p>
+        <h1>登录</h1>
+        <p class="muted-text">登录后管理属于你的提醒和设置。</p>
+
+        <form id="loginForm" class="auth-form">
+          <label for="email">邮箱</label>
+          <input id="email" name="email" type="email" autocomplete="email" required />
+
+          <label for="password">密码</label>
+          <input id="password" name="password" type="password" autocomplete="current-password" required />
+
+          <button id="loginSubmitButton" type="submit">登录</button>
+        </form>
+
+        <p class="auth-footer">还没有账户？<a href="/pages/register.html">创建账户</a></p>
+      </section>
+    </main>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/ui.js"></script>
+    <script src="/js/login.js"></script>
+  </body>
+</html>

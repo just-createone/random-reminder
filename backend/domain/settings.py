@@ -3,9 +3,10 @@ from dataclasses import dataclass
 
 @dataclass
 class Settings:
-    """随机提醒器的全局提醒设置。"""
+    """A registered user's reminder settings."""
 
     id: int
+    user_id: int | None
     enabled: bool
     all_day: bool
     start_time: str | None

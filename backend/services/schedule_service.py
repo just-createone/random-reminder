@@ -1,5 +1,6 @@
 import random
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from backend.domain.daily_schedule import DailySchedule
 from backend.domain.reminder import Reminder
@@ -60,20 +61,23 @@ class ScheduleService:
 
     def get_today_schedule(
         self,
+        user_id: int | None = None,
+        time_zone: str = "Asia/Shanghai",
+        now: datetime | None = None,
     ) -> list[DailySchedule]:
         """读取今天已经生成的提醒计划。"""
 
-        today = date.today().isoformat()
+        today = self._resolve_now(time_zone, now).date().isoformat()
 
         return self.schedule_repository.get_by_date(
-            today
+            today, user_id
         )
 
-    def is_enabled(self) -> bool:
+    def is_enabled(self, user_id: int | None = None) -> bool:
         """返回随机提醒总开关是否开启。"""
 
         settings = (
-            self.settings_repository.get()
+            self.settings_repository.get(user_id)
         )
 
         return settings.enabled
@@ -82,6 +86,8 @@ class ScheduleService:
         self,
         now: datetime | None = None,
         grace_minutes: int = 5,
+        user_id: int | None = None,
+        time_zone: str = "Asia/Shanghai",
     ) -> int:
         """跳过超过允许延迟时间的 pending 计划。"""
 
@@ -91,8 +97,7 @@ class ScheduleService:
             )
 
         current_datetime = (
-            now
-            or datetime.now()
+            self._resolve_now(time_zone, now)
         )
 
         cutoff_datetime = (
@@ -107,7 +112,8 @@ class ScheduleService:
             .skip_overdue_pending(
                 cutoff_datetime.strftime(
                     "%Y-%m-%d %H:%M:%S"
-                )
+                ),
+                user_id=user_id,
             )
         )
 
@@ -115,6 +121,8 @@ class ScheduleService:
         self,
         force: bool = False,
         now: datetime | None = None,
+        user_id: int | None = None,
+        time_zone: str = "Asia/Shanghai",
     ) -> list[DailySchedule]:
         """
         生成今天的未来随机提醒计划。
@@ -127,8 +135,7 @@ class ScheduleService:
         """
 
         current_datetime = (
-            now
-            or datetime.now()
+            self._resolve_now(time_zone, now)
         )
 
         today = (
@@ -140,7 +147,7 @@ class ScheduleService:
         existing_schedules = (
             self.schedule_repository
             .get_by_date(
-                today
+                today, user_id
             )
         )
 
@@ -152,7 +159,7 @@ class ScheduleService:
             return existing_schedules
 
         settings = (
-            self.settings_repository.get()
+            self.settings_repository.get(user_id)
         )
 
         if not settings.enabled:
@@ -195,14 +202,14 @@ class ScheduleService:
             (
                 self.schedule_repository
                 .delete_replaceable_by_date(
-                    today
+                    today, user_id
                 )
             )
 
             remaining_schedules = (
                 self.schedule_repository
                 .get_by_date(
-                    today
+                    today, user_id
                 )
             )
 
@@ -214,7 +221,7 @@ class ScheduleService:
 
         reminders = (
             self.reminder_repository
-            .get_enabled()
+            .get_enabled(user_id)
         )
 
         if not reminders:
@@ -300,6 +307,7 @@ class ScheduleService:
                 .replace_replaceable_by_date(
                     schedule_date=today,
                     items=items,
+                    user_id=user_id,
                 )
             )
 
@@ -309,6 +317,7 @@ class ScheduleService:
                 .create_many(
                     schedule_date=today,
                     items=items,
+                    user_id=user_id,
                 )
             )
 
@@ -332,6 +341,18 @@ class ScheduleService:
         self.notification_repository.create_many_for_schedules(
             schedule_ids
         )
+
+    @staticmethod
+    def _resolve_now(
+        time_zone: str,
+        now: datetime | None,
+    ) -> datetime:
+        zone = ZoneInfo(time_zone)
+        if now is None:
+            return datetime.now(zone)
+        if now.tzinfo is None:
+            return now
+        return now.astimezone(zone)
 
     @staticmethod
     def _resolve_time_range(
@@ -383,11 +404,13 @@ class ScheduleService:
         configured_start = datetime.combine(
             now.date(),
             start_clock,
+            tzinfo=now.tzinfo,
         )
 
         configured_end = datetime.combine(
             now.date(),
             end_clock,
+            tzinfo=now.tzinfo,
         )
 
         if configured_end < configured_start:

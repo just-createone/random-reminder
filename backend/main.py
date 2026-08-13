@@ -2,7 +2,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from backend.api.notifications import (
@@ -15,6 +15,10 @@ from backend.api.push_subscriptions import (
     router as push_subscriptions_router,
 )
 from backend.api.data import router as data_router
+from backend.api.auth import (
+    require_current_user,
+    router as auth_router,
+)
 
 from backend.config import (
     PROJECT_NAME,
@@ -154,27 +158,37 @@ def health_check() -> dict[str, str]:
 
 
 app.include_router(
-    reminders_router
+    reminders_router,
+    dependencies=[Depends(require_current_user)],
 )
 
 app.include_router(
-    settings_router
+    settings_router,
+    dependencies=[Depends(require_current_user)],
 )
 
 app.include_router(
-    schedules_router
+    schedules_router,
+    dependencies=[Depends(require_current_user)],
 )
 
 app.include_router(
-    notifications_router
+    notifications_router,
+    dependencies=[Depends(require_current_user)],
 )
 
 app.include_router(
-    push_subscriptions_router
+    push_subscriptions_router,
+    dependencies=[Depends(require_current_user)],
 )
 
 app.include_router(
-    data_router
+    data_router,
+    dependencies=[Depends(require_current_user)],
+)
+
+app.include_router(
+    auth_router
 )
 
 # PWA 文件

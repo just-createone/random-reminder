@@ -23,6 +23,7 @@ class PushSubscriptionService:
 
     def subscribe(
         self,
+        user_id: int,
         endpoint: str,
         p256dh: str,
         auth: str,
@@ -63,6 +64,7 @@ class PushSubscriptionService:
         )
 
         return self.repository.save(
+            user_id=user_id,
             endpoint=cleaned_endpoint,
             p256dh=cleaned_p256dh,
             auth=cleaned_auth,
@@ -71,6 +73,7 @@ class PushSubscriptionService:
 
     def unsubscribe(
         self,
+        user_id: int,
         endpoint: str,
     ) -> bool:
         """停用一个浏览器推送订阅。"""
@@ -84,6 +87,7 @@ class PushSubscriptionService:
 
         return self.repository.deactivate(
             endpoint=cleaned_endpoint,
+            user_id=user_id,
         )
     
     def get_public_key(self) -> str:

@@ -183,6 +183,7 @@ class NotificationRepository:
         self,
         schedule_date: str,
         current_time: str,
+        user_id: int | None = None,
     ) -> list[NotificationTask]:
         """查询指定日期中已经到达执行时间的待发送通知。"""
 
@@ -204,6 +205,7 @@ class NotificationRepository:
                 WHERE notifications.status = 'pending'
                 AND daily_schedules.status = 'pending'
                 AND daily_schedules.schedule_date = ?
+                AND daily_schedules.user_id IS ?
                 AND time(daily_schedules.scheduled_time) <= time(?)
                 ORDER BY
                     daily_schedules.scheduled_time ASC,
@@ -211,6 +213,7 @@ class NotificationRepository:
                 """,
                 (
                     schedule_date,
+                    user_id,
                     current_time,
                 ),
             )
@@ -331,6 +334,8 @@ class NotificationRepository:
     def get_recent_history(
         self,
         limit: int = 20,
+        user_id: int | None = None,
+        today: str | None = None,
     ) -> list[NotificationHistoryItem]:
         """
         查询最近的通知记录。
@@ -342,7 +347,7 @@ class NotificationRepository:
         if limit < 1:
             return []
 
-        today = date.today().isoformat()
+        today = today or date.today().isoformat()
 
         connection = get_connection()
 
@@ -370,14 +375,14 @@ class NotificationRepository:
                     ON daily_schedules.id =
                     notifications.schedule_id
                 WHERE
-                    notifications.status IN (
-                        'sent',
-                        'failed'
-                    )
-                    OR (
-                        notifications.status = 'pending'
-                        AND daily_schedules.status = 'pending'
-                        AND daily_schedules.schedule_date = ?
+                    daily_schedules.user_id IS ?
+                    AND (
+                        notifications.status IN ('sent', 'failed')
+                        OR (
+                            notifications.status = 'pending'
+                            AND daily_schedules.status = 'pending'
+                            AND daily_schedules.schedule_date = ?
+                        )
                     )
                 ORDER BY
                     daily_schedules.schedule_date DESC,
@@ -386,6 +391,7 @@ class NotificationRepository:
                 LIMIT ?
                 """,
                 (
+                    user_id,
                     today,
                     limit,
                 ),

@@ -11,6 +11,7 @@ class PushSubscriptionRepository:
 
     def save(
         self,
+        user_id: int,
         endpoint: str,
         p256dh: str,
         auth: str,
@@ -26,15 +27,17 @@ class PushSubscriptionRepository:
             cursor.execute(
                 """
                 INSERT INTO push_subscriptions (
+                    user_id,
                     endpoint,
                     p256dh,
                     auth,
                     user_agent
                 )
-                VALUES (?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?)
 
                 ON CONFLICT(endpoint)
                 DO UPDATE SET
+                    user_id = excluded.user_id,
                     p256dh = excluded.p256dh,
                     auth = excluded.auth,
                     user_agent = excluded.user_agent,
@@ -42,6 +45,7 @@ class PushSubscriptionRepository:
                     updated_at = CURRENT_TIMESTAMP
                 """,
                 (
+                    user_id,
                     endpoint,
                     p256dh,
                     auth,
@@ -59,7 +63,7 @@ class PushSubscriptionRepository:
             connection.close()
 
         subscription = self.get_by_endpoint(
-            endpoint
+            endpoint, user_id
         )
 
         if subscription is None:
@@ -72,6 +76,7 @@ class PushSubscriptionRepository:
     def get_by_endpoint(
         self,
         endpoint: str,
+        user_id: int | None = None,
     ) -> PushSubscription | None:
         """根据推送地址查询订阅。"""
 
@@ -84,6 +89,7 @@ class PushSubscriptionRepository:
                 """
                 SELECT
                     id,
+                    user_id,
                     endpoint,
                     p256dh,
                     auth,
@@ -93,8 +99,9 @@ class PushSubscriptionRepository:
                     updated_at
                 FROM push_subscriptions
                 WHERE endpoint = ?
+                AND user_id IS ?
                 """,
-                (endpoint,),
+                (endpoint, user_id),
             )
 
             row = cursor.fetchone()
@@ -111,6 +118,7 @@ class PushSubscriptionRepository:
 
     def get_active(
         self,
+        user_id: int | None = None,
     ) -> list[PushSubscription]:
         """查询所有有效订阅。"""
 
@@ -123,6 +131,7 @@ class PushSubscriptionRepository:
                 """
                 SELECT
                     id,
+                    user_id,
                     endpoint,
                     p256dh,
                     auth,
@@ -132,8 +141,10 @@ class PushSubscriptionRepository:
                     updated_at
                 FROM push_subscriptions
                 WHERE is_active = 1
+                AND user_id IS ?
                 ORDER BY id ASC
-                """
+                """,
+                (user_id,),
             )
 
             rows = cursor.fetchall()
@@ -149,6 +160,7 @@ class PushSubscriptionRepository:
     def deactivate(
         self,
         endpoint: str,
+        user_id: int | None = None,
     ) -> bool:
         """将一个订阅标记为已停用。"""
 
@@ -164,9 +176,10 @@ class PushSubscriptionRepository:
                     is_active = 0,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE endpoint = ?
+                  AND user_id IS ?
                   AND is_active = 1
                 """,
-                (endpoint,),
+                (endpoint, user_id),
             )
 
             changed = cursor.rowcount == 1
@@ -190,6 +203,7 @@ class PushSubscriptionRepository:
 
         return PushSubscription(
             id=row["id"],
+            user_id=row["user_id"],
             endpoint=row["endpoint"],
             p256dh=row["p256dh"],
             auth=row["auth"],

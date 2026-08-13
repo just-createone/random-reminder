@@ -199,6 +199,10 @@ textarea {
 
 }
 
+body.auth-pending main {
+    visibility: hidden;
+}
+
 
 .data-management-actions {
     display: flex;
@@ -397,6 +401,57 @@ button:hover {
     opacity: 0.6;
 }
 
+.page-header-actions,
+.page-navigation {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+
+.page-navigation {
+    margin-bottom: 20px;
+}
+
+.current-user-email {
+    max-width: 220px;
+    overflow-wrap: anywhere;
+    color: #666;
+    font-size: 14px;
+}
+
+.auth-container {
+    max-width: 460px;
+}
+
+.auth-card h1 {
+    margin: 8px 0;
+    text-align: left;
+}
+
+.auth-form {
+    display: grid;
+    gap: 10px;
+    margin-top: 24px;
+}
+
+.auth-form input {
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+}
+
+.auth-form button {
+    margin-top: 10px;
+}
+
+.auth-footer {
+    margin: 20px 0 0;
+    color: #666;
+}
+
 .schedule-status-pending {
     color: #8a6116;
 }
@@ -443,6 +498,14 @@ button:hover {
 @media (max-width: 600px) {
     .page-header {
         flex-direction: column;
+    }
+
+    .page-header-actions {
+        width: 100%;
+    }
+
+    .page-header-actions .secondary-button {
+        flex: 1;
     }
 
     .dashboard-grid {

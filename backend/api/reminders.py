@@ -1,9 +1,11 @@
 from dataclasses import asdict
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
 from backend.core.exceptions import ResourceNotFoundError
+from backend.api.auth import require_current_user
+from backend.domain.user import User
 from backend.services.reminder_service import ReminderService
 
 
@@ -55,12 +57,14 @@ class ReminderEnabledRequest(BaseModel):
 )
 def create_reminder(
     request: ReminderCreateRequest,
+    current_user: User = Depends(require_current_user),
 ) -> dict:
     """新增一条提醒。"""
 
     try:
         reminder = reminder_service.create_reminder(
-            request.content
+            request.content,
+            current_user.id,
         )
 
         return {
@@ -77,10 +81,12 @@ def create_reminder(
 
 
 @router.get("")
-def get_reminders() -> dict:
+def get_reminders(
+    current_user: User = Depends(require_current_user),
+) -> dict:
     """查询全部提醒。"""
 
-    reminders = reminder_service.get_all_reminders()
+    reminders = reminder_service.get_all_reminders(current_user.id)
 
     return {
         "success": True,
@@ -93,12 +99,16 @@ def get_reminders() -> dict:
 
 
 @router.get("/{reminder_id}")
-def get_reminder(reminder_id: int) -> dict:
+def get_reminder(
+    reminder_id: int,
+    current_user: User = Depends(require_current_user),
+) -> dict:
     """根据 ID 查询一条提醒。"""
 
     try:
         reminder = reminder_service.get_reminder(
-            reminder_id
+            reminder_id,
+            current_user.id,
         )
 
         return {
@@ -118,6 +128,7 @@ def get_reminder(reminder_id: int) -> dict:
 def update_reminder(
     reminder_id: int,
     request: ReminderUpdateRequest,
+    current_user: User = Depends(require_current_user),
 ) -> dict:
     """修改一条提醒的内容。"""
 
@@ -125,6 +136,7 @@ def update_reminder(
         reminder = reminder_service.update_reminder(
             reminder_id=reminder_id,
             content=request.content,
+            user_id=current_user.id,
         )
 
         return {
@@ -150,6 +162,7 @@ def update_reminder(
 def update_reminder_enabled(
     reminder_id: int,
     request: ReminderEnabledRequest,
+    current_user: User = Depends(require_current_user),
 ) -> dict:
     """启用或停用一条提醒。"""
 
@@ -158,6 +171,7 @@ def update_reminder_enabled(
             reminder_service.update_reminder_enabled(
                 reminder_id=reminder_id,
                 enabled=request.enabled,
+                user_id=current_user.id,
             )
         )
 
@@ -177,11 +191,17 @@ def update_reminder_enabled(
 
 
 @router.delete("/{reminder_id}")
-def delete_reminder(reminder_id: int) -> dict:
+def delete_reminder(
+    reminder_id: int,
+    current_user: User = Depends(require_current_user),
+) -> dict:
     """删除一条提醒。"""
 
     try:
-        reminder_service.delete_reminder(reminder_id)
+        reminder_service.delete_reminder(
+            reminder_id,
+            current_user.id,
+        )
 
         return {
             "success": True,

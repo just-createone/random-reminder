@@ -139,6 +139,20 @@ DEBUG = _read_bool(
     ),
 )
 
+SESSION_COOKIE_NAME = "random_reminder_session"
+
+SESSION_DURATION_DAYS = _read_int(
+    "RANDOM_REMINDER_SESSION_DURATION_DAYS",
+    default=14,
+    minimum=1,
+    maximum=90,
+)
+
+SESSION_COOKIE_SECURE = _read_bool(
+    "RANDOM_REMINDER_SESSION_COOKIE_SECURE",
+    default=(ENVIRONMENT == "production"),
+)
+
 DEFAULT_HOST = (
     "0.0.0.0"
     if ENVIRONMENT == "production"

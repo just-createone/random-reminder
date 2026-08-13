@@ -31,8 +31,9 @@ class WebPushService:
             or PushSubscriptionRepository()
         )
 
-    def send_to_all(
+    def send_to_user(
         self,
+        user_id: int,
         title: str,
         body: str,
         url: str = "/",
@@ -65,9 +66,7 @@ class WebPushService:
             get_vapid_private_key_path()
         )
 
-        subscriptions = (
-            self.repository.get_active()
-        )
+        subscriptions = self.repository.get_active(user_id)
 
         if not subscriptions:
             raise ValueError(
@@ -143,6 +142,7 @@ class WebPushService:
                             endpoint=(
                                 subscription.endpoint
                             ),
+                            user_id=user_id,
                         )
                     )
 

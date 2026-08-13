@@ -321,4 +321,8 @@ function escapeHtml(value) {
   return div.innerHTML;
 }
 
-loadReminders();
+authenticatedUserReady.then((user) => {
+  if (user) {
+    loadReminders();
+  }
+});

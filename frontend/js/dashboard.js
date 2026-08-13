@@ -599,4 +599,8 @@ function getNotificationStatusText(
 
     return statusMap[status] || "未知状态";
 }
-initializeDashboard();
+authenticatedUserReady.then((user) => {
+    if (user) {
+        initializeDashboard();
+    }
+});

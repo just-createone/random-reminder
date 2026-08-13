@@ -15,10 +15,10 @@ class SettingsService:
     ) -> None:
         self.repository = repository or SettingsRepository()
 
-    def get_settings(self) -> Settings:
+    def get_settings(self, user_id: int | None = None) -> Settings:
         """读取当前设置。"""
 
-        return self.repository.get()
+        return self.repository.get(user_id)
 
     def update_settings(
         self,
@@ -28,6 +28,7 @@ class SettingsService:
         end_time: str | None,
         times_per_day: int,
         minimum_interval: int,
+        user_id: int | None = None,
     ) -> Settings:
         """验证并保存设置。"""
 
@@ -60,6 +61,7 @@ class SettingsService:
             end_time=validated_end_time,
             times_per_day=times_per_day,
             minimum_interval=minimum_interval,
+            user_id=user_id,
         )
 
     @staticmethod

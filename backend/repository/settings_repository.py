@@ -7,9 +7,7 @@ from backend.domain.settings import Settings
 class SettingsRepository:
     """负责 settings 表的数据读写。"""
 
-    SETTINGS_ID = 1
-
-    def get(self) -> Settings:
+    def get(self, user_id: int | None = None) -> Settings:
         """读取全局设置。"""
 
         connection = get_connection()
@@ -21,6 +19,7 @@ class SettingsRepository:
                 """
                 SELECT
                     id,
+                    user_id,
                     enabled,
                     all_day,
                     start_time,
@@ -30,9 +29,9 @@ class SettingsRepository:
                     created_at,
                     updated_at
                 FROM settings
-                WHERE id = ?
+                WHERE user_id IS ?
                 """,
-                (self.SETTINGS_ID,),
+                (user_id,),
             )
 
             row = cursor.fetchone()
@@ -53,6 +52,7 @@ class SettingsRepository:
         end_time: str | None,
         times_per_day: int,
         minimum_interval: int,
+        user_id: int | None = None,
     ) -> Settings:
         """更新全局设置。"""
 
@@ -71,7 +71,7 @@ class SettingsRepository:
                     times_per_day = ?,
                     minimum_interval = ?,
                     updated_at = CURRENT_TIMESTAMP
-                WHERE id = ?
+                WHERE user_id IS ?
                 """,
                 (
                     int(enabled),
@@ -80,7 +80,7 @@ class SettingsRepository:
                     end_time,
                     times_per_day,
                     minimum_interval,
-                    self.SETTINGS_ID,
+                    user_id,
                 ),
             )
 
@@ -89,7 +89,7 @@ class SettingsRepository:
         finally:
             connection.close()
 
-        return self.get()
+        return self.get(user_id)
 
     @staticmethod
     def _row_to_settings(
@@ -99,6 +99,7 @@ class SettingsRepository:
 
         return Settings(
             id=row["id"],
+            user_id=row["user_id"],
             enabled=bool(row["enabled"]),
             all_day=bool(row["all_day"]),
             start_time=row["start_time"],

@@ -22,10 +22,10 @@ class DataTransferService:
     ) -> None:
         self.repository = repository or DataTransferRepository()
 
-    def export_data(self) -> dict[str, object]:
+    def export_data(self, user_id: int | None = None) -> dict[str, object]:
         """Build the versioned, portable user-data export."""
 
-        reminders, settings = self.repository.get_export_data()
+        reminders, settings = self.repository.get_export_data(user_id)
 
         return {
             "format": EXPORT_FORMAT,
@@ -38,6 +38,7 @@ class DataTransferService:
     def import_data(
         self,
         payload: object,
+        user_id: int | None = None,
     ) -> dict[str, object]:
         """Validate a portable export and import it atomically."""
 
@@ -53,6 +54,7 @@ class DataTransferService:
         imported_reminders = self.repository.import_data(
             reminders=reminders,
             settings=settings,
+            user_id=user_id,
         )
 
         return {

@@ -1,4 +1,5 @@
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -76,3 +77,15 @@ def test_future_start_rejects_finished_range() -> None:
                 lead_minutes=2,
             )
         )
+
+
+def test_future_start_supports_an_aware_user_local_time() -> None:
+    """Time-zone-aware SaaS users must generate plans without mixed datetimes."""
+    result = ScheduleService._resolve_future_start_time(
+        start_time="08:00",
+        end_time="22:00",
+        now=datetime(2026, 7, 29, 13, 15, 20, tzinfo=ZoneInfo("Asia/Shanghai")),
+        lead_minutes=2,
+    )
+
+    assert result == "13:18"

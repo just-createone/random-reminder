@@ -249,6 +249,49 @@ def test_confirm_modal_supports_contextual_confirm_text() -> None:
     assert "confirmModalConfirmButton" in content
 
 
+def test_authentication_pages_and_page_guard_use_existing_api_helpers() -> None:
+    login_page = (
+        PROJECT_ROOT / "frontend" / "pages" / "login.html"
+    ).read_text(encoding="utf-8")
+    register_page = (
+        PROJECT_ROOT / "frontend" / "pages" / "register.html"
+    ).read_text(encoding="utf-8")
+    auth_script = (
+        PROJECT_ROOT / "frontend" / "js" / "auth.js"
+    ).read_text(encoding="utf-8")
+    login_script = (
+        PROJECT_ROOT / "frontend" / "js" / "login.js"
+    ).read_text(encoding="utf-8")
+    register_script = (
+        PROJECT_ROOT / "frontend" / "js" / "register.js"
+    ).read_text(encoding="utf-8")
+
+    assert 'id="loginForm"' in login_page
+    assert 'id="registerForm"' in register_page
+    assert 'type="password"' in login_page
+    assert 'type="password"' in register_page
+    assert "requireAuthenticatedUser" in auth_script
+    assert "const authenticatedUserReady" in auth_script
+    assert 'apiGet("/api/auth/me")' in auth_script
+    assert 'apiPost("/api/auth/logout")' in auth_script
+    assert 'classList.remove("auth-pending")' in auth_script
+    assert 'apiPost("/api/auth/login"' in login_script
+    assert 'apiPost("/api/auth/register"' in register_script
+    assert "Intl.DateTimeFormat" in register_script
+    assert "time_zone: timeZone" in register_script
+    assert "localStorage" not in auth_script
+
+    for script_name in (
+        "dashboard.js",
+        "reminders.js",
+        "settings.js",
+    ):
+        content = (
+            PROJECT_ROOT / "frontend" / "js" / script_name
+        ).read_text(encoding="utf-8")
+        assert "authenticatedUserReady.then" in content
+
+
 def test_dashboard_feedback_keeps_empty_states_and_hides_errors() -> None:
     content = (
         PROJECT_ROOT

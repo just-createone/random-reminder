@@ -10,6 +10,7 @@ class DailyScheduleRepository:
     def get_by_date(
         self,
         schedule_date: str,
+        user_id: int | None = None,
     ) -> list[DailySchedule]:
         """查询指定日期的全部提醒计划。"""
 
@@ -30,9 +31,10 @@ class DailyScheduleRepository:
                     created_at
                 FROM daily_schedules
                 WHERE schedule_date = ?
+                AND user_id IS ?
                 ORDER BY scheduled_time ASC
                 """,
-                (schedule_date,),
+                (schedule_date, user_id),
             )
 
             rows = cursor.fetchall()
@@ -48,6 +50,7 @@ class DailyScheduleRepository:
     def delete_by_date(
         self,
         schedule_date: str,
+        user_id: int | None = None,
     ) -> None:
         """删除指定日期的全部计划。"""
 
@@ -60,8 +63,9 @@ class DailyScheduleRepository:
                 """
                 DELETE FROM daily_schedules
                 WHERE schedule_date = ?
+                AND user_id IS ?
                 """,
-                (schedule_date,),
+                (schedule_date, user_id),
             )
 
             connection.commit()
@@ -72,6 +76,7 @@ class DailyScheduleRepository:
     def delete_replaceable_by_date(
     self,
     schedule_date: str,
+    user_id: int | None = None,
 ) -> int:
         """
         删除指定日期中可以被重新生成的计划。
@@ -89,12 +94,13 @@ class DailyScheduleRepository:
                 """
                 DELETE FROM daily_schedules
                 WHERE schedule_date = ?
+                AND user_id IS ?
                 AND status IN (
                     'pending',
                     'skipped'
                 )
                 """,
-                (schedule_date,),
+                (schedule_date, user_id),
             )
 
             deleted_count = cursor.rowcount
@@ -113,6 +119,7 @@ class DailyScheduleRepository:
     def skip_overdue_pending(
     self,
     cutoff_datetime: str,
+    user_id: int | None = None,
 ) -> int:
         """
         跳过截止时间以前仍未执行的计划。
@@ -131,13 +138,14 @@ class DailyScheduleRepository:
                 SELECT id
                 FROM daily_schedules
                 WHERE status = 'pending'
+                AND user_id IS ?
                 AND datetime(
                         schedule_date
                         || ' '
                         || scheduled_time
                     ) < datetime(?)
                 """,
-                (cutoff_datetime,),
+                (user_id, cutoff_datetime),
             )
 
             schedule_ids = [
@@ -189,6 +197,7 @@ class DailyScheduleRepository:
         self,
         schedule_date: str,
         items: list[tuple[str, int, str]],
+        user_id: int | None = None,
     ) -> list[DailySchedule]:
         """批量创建某一天的提醒计划。"""
 
@@ -200,15 +209,17 @@ class DailyScheduleRepository:
             cursor.executemany(
                 """
                 INSERT INTO daily_schedules (
+                    user_id,
                     schedule_date,
                     scheduled_time,
                     reminder_id,
                     content_snapshot
                 )
-                VALUES (?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?)
                 """,
                 [
                     (
+                        user_id,
                         schedule_date,
                         scheduled_time,
                         reminder_id,
@@ -224,12 +235,13 @@ class DailyScheduleRepository:
         finally:
             connection.close()
 
-        return self.get_by_date(schedule_date)
+        return self.get_by_date(schedule_date, user_id)
     
     def replace_replaceable_by_date(
     self,
     schedule_date: str,
     items: list[tuple[str, int, str]],
+    user_id: int | None = None,
 ) -> list[DailySchedule]:
         """
         原子替换指定日期中可重新生成的计划。
@@ -250,26 +262,29 @@ class DailyScheduleRepository:
                 """
                 DELETE FROM daily_schedules
                 WHERE schedule_date = ?
+                AND user_id IS ?
                 AND status IN (
                     'pending',
                     'skipped'
                 )
                 """,
-                (schedule_date,),
+                (schedule_date, user_id),
             )
 
             cursor.executemany(
                 """
                 INSERT INTO daily_schedules (
+                    user_id,
                     schedule_date,
                     scheduled_time,
                     reminder_id,
                     content_snapshot
                 )
-                VALUES (?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?)
                 """,
                 [
                     (
+                        user_id,
                         schedule_date,
                         scheduled_time,
                         reminder_id,
@@ -293,7 +308,7 @@ class DailyScheduleRepository:
             connection.close()
 
         return self.get_by_date(
-            schedule_date
+            schedule_date, user_id
         )
 
 
