@@ -1,5 +1,5 @@
 const CACHE_NAME =
-    "random-reminder-v4";
+    "random-reminder-v5";
 
 const APP_SHELL = [
     "/",

@@ -329,6 +329,11 @@ def test_pwa_install_script_uses_native_install_and_ios_fallback() -> None:
     assert 'display-mode: standalone' in content
     assert 'iPhone|iPad|iPod' in content
 
+    service_worker = (
+        PROJECT_ROOT / "frontend" / "service-worker.js"
+    ).read_text(encoding="utf-8")
+    assert '"random-reminder-v5"' in service_worker
+
 
 def test_dashboard_feedback_keeps_empty_states_and_hides_errors() -> None:
     content = (
