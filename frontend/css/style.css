@@ -401,6 +401,21 @@ button:hover {
     opacity: 0.6;
 }
 
+.pwa-install-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
+}
+
+.pwa-install-card h2 {
+    margin-bottom: 8px;
+}
+
+.pwa-install-card[hidden] {
+    display: none;
+}
+
 .page-header-actions,
 .page-navigation {
     display: flex;
@@ -514,6 +529,15 @@ button:hover {
 
     .quick-actions {
         grid-template-columns: 1fr;
+    }
+
+    .pwa-install-card {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .pwa-install-card .secondary-button {
+        width: 100%;
     }
 
     .next-reminder-time {

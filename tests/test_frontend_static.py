@@ -292,6 +292,44 @@ def test_authentication_pages_and_page_guard_use_existing_api_helpers() -> None:
         assert "authenticatedUserReady.then" in content
 
 
+def test_pwa_install_support_is_available_on_the_user_journey() -> None:
+    page_paths = (
+        PROJECT_ROOT / "frontend" / "index.html",
+        PROJECT_ROOT / "frontend" / "pages" / "login.html",
+        PROJECT_ROOT / "frontend" / "pages" / "register.html",
+        PROJECT_ROOT / "frontend" / "pages" / "reminders.html",
+        PROJECT_ROOT / "frontend" / "pages" / "settings.html",
+    )
+
+    for page_path in page_paths:
+        content = page_path.read_text(encoding="utf-8")
+        assert 'rel="manifest" href="/manifest.json"' in content
+        assert 'rel="apple-touch-icon" href="/assets/icon-192.png"' in content
+        assert '<meta name="theme-color" content="#ffffff"' in content
+        assert '<script src="/js/pwa.js"></script>' in content
+
+    index_content = page_paths[0].read_text(encoding="utf-8")
+    assert 'id="pwaInstallCard"' in index_content
+    assert 'id="pwaInstallDescription"' in index_content
+    assert 'id="pwaInstallButton"' in index_content
+    assert index_content.index('/js/ui.js') < index_content.index('/js/pwa.js')
+    assert index_content.index('/js/pwa.js') < index_content.index('/js/auth.js')
+
+
+def test_pwa_install_script_uses_native_install_and_ios_fallback() -> None:
+    content = (
+        PROJECT_ROOT / "frontend" / "js" / "pwa.js"
+    ).read_text(encoding="utf-8")
+
+    assert 'navigator.serviceWorker.register("/service-worker.js")' in content
+    assert 'beforeinstallprompt' in content
+    assert 'event.preventDefault()' in content
+    assert 'deferredInstallPrompt.prompt()' in content
+    assert 'appinstalled' in content
+    assert 'display-mode: standalone' in content
+    assert 'iPhone|iPad|iPod' in content
+
+
 def test_dashboard_feedback_keeps_empty_states_and_hides_errors() -> None:
     content = (
         PROJECT_ROOT
