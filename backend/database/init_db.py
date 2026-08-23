@@ -52,6 +52,16 @@ def init_database() -> None:
             """)
 
         cursor.execute("""
+            CREATE TABLE IF NOT EXISTS auth_rate_limits (
+                scope TEXT NOT NULL,
+                rate_key TEXT NOT NULL,
+                window_started_at INTEGER NOT NULL,
+                attempt_count INTEGER NOT NULL,
+                PRIMARY KEY (scope, rate_key)
+            )
+            """)
+
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS reminders (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 content TEXT NOT NULL,
@@ -78,6 +88,7 @@ def init_database() -> None:
         _initialize_settings_table(cursor)
         connection.commit()
         _initialize_schedule_tables(connection)
+        _initialize_notification_claims(connection)
         cursor = connection.cursor()
         cursor.execute(
     """
@@ -169,9 +180,24 @@ def _initialize_schedule_tables(connection) -> None:
                 connection.commit()
             finally:
                 connection.execute("PRAGMA foreign_keys = ON")
+        _create_schedule_clearances_table(cursor)
         return
 
     _create_schedule_tables(cursor)
+    _create_schedule_clearances_table(cursor)
+
+
+def _initialize_notification_claims(connection) -> None:
+    cursor = connection.cursor()
+    columns = {
+        row["name"] for row in cursor.execute("PRAGMA table_info(notifications)")
+    }
+    if "claimed_at" not in columns:
+        cursor.execute("ALTER TABLE notifications ADD COLUMN claimed_at TEXT")
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_notifications_pending_claim "
+        "ON notifications(status, claimed_at)"
+    )
 
 
 def _create_schedule_tables(cursor) -> None:
@@ -211,6 +237,20 @@ def _create_schedule_tables(cursor) -> None:
             COALESCE(user_id, -1),
             schedule_date,
             scheduled_time
+        )
+        """
+    )
+
+
+def _create_schedule_clearances_table(cursor) -> None:
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS daily_schedule_clearances (
+            user_id INTEGER NOT NULL,
+            schedule_date TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (user_id, schedule_date),
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         )
         """
     )

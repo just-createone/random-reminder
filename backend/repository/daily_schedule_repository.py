@@ -116,6 +116,99 @@ class DailyScheduleRepository:
         finally:
             connection.close()
 
+    def clear_replaceable_and_mark_by_date(
+        self,
+        schedule_date: str,
+        user_id: int,
+    ) -> int:
+        """Delete unfinished schedules and remember the user's clear action."""
+
+        connection = get_connection()
+
+        try:
+            cursor = connection.cursor()
+
+            cursor.execute(
+                """
+                DELETE FROM daily_schedules
+                WHERE schedule_date = ?
+                AND user_id = ?
+                AND status IN (
+                    'pending',
+                    'skipped'
+                )
+                """,
+                (schedule_date, user_id),
+            )
+
+            deleted_count = cursor.rowcount
+
+            cursor.execute(
+                """
+                INSERT INTO daily_schedule_clearances (
+                    user_id,
+                    schedule_date
+                )
+                VALUES (?, ?)
+                ON CONFLICT(user_id, schedule_date) DO NOTHING
+                """,
+                (user_id, schedule_date),
+            )
+
+            connection.commit()
+
+            return deleted_count
+
+        except Exception:
+            connection.rollback()
+            raise
+
+        finally:
+            connection.close()
+
+    def is_cleared_by_date(
+        self,
+        schedule_date: str,
+        user_id: int,
+    ) -> bool:
+        connection = get_connection()
+
+        try:
+            row = connection.execute(
+                """
+                SELECT 1
+                FROM daily_schedule_clearances
+                WHERE user_id = ?
+                AND schedule_date = ?
+                """,
+                (user_id, schedule_date),
+            ).fetchone()
+            return row is not None
+
+        finally:
+            connection.close()
+
+    def remove_clearance_by_date(
+        self,
+        schedule_date: str,
+        user_id: int,
+    ) -> None:
+        connection = get_connection()
+
+        try:
+            connection.execute(
+                """
+                DELETE FROM daily_schedule_clearances
+                WHERE user_id = ?
+                AND schedule_date = ?
+                """,
+                (user_id, schedule_date),
+            )
+            connection.commit()
+
+        finally:
+            connection.close()
+
     def skip_overdue_pending(
     self,
     cutoff_datetime: str,

@@ -76,3 +76,21 @@ def generate_today_schedule(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(error),
         ) from error
+
+
+@router.delete("/today")
+def clear_today_schedule(
+    current_user: User = Depends(require_current_user),
+) -> dict:
+    """Clear only the current user's unfinished schedules for today."""
+
+    deleted_count = schedule_service.clear_today_replaceable_schedules(
+        user_id=current_user.id,
+        time_zone=current_user.time_zone,
+    )
+
+    return {
+        "success": True,
+        "data": {"deleted_count": deleted_count},
+        "message": "已清理今日未执行计划",
+    }

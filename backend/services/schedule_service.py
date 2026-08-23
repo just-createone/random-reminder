@@ -82,6 +82,30 @@ class ScheduleService:
 
         return settings.enabled
 
+    def clear_today_replaceable_schedules(
+        self,
+        user_id: int,
+        time_zone: str,
+        now: datetime | None = None,
+    ) -> int:
+        """Clear the current user's unfinished schedules for their local day."""
+
+        today = self._resolve_now(time_zone, now).date().isoformat()
+
+        return self.schedule_repository.clear_replaceable_and_mark_by_date(
+            today,
+            user_id,
+        )
+
+    def is_today_schedule_cleared(
+        self,
+        user_id: int,
+        time_zone: str,
+        now: datetime | None = None,
+    ) -> bool:
+        today = self._resolve_now(time_zone, now).date().isoformat()
+        return self.schedule_repository.is_cleared_by_date(today, user_id)
+
     def skip_overdue_pending(
         self,
         now: datetime | None = None,
@@ -149,6 +173,11 @@ class ScheduleService:
             .get_by_date(
                 today, user_id
             )
+        )
+
+        self.schedule_repository.remove_clearance_by_date(
+            today,
+            user_id,
         )
 
         if existing_schedules and not force:

@@ -153,6 +153,11 @@ SESSION_COOKIE_SECURE = _read_bool(
     default=(ENVIRONMENT == "production"),
 )
 
+TRUST_PROXY_HEADERS = _read_bool(
+    "RANDOM_REMINDER_TRUST_PROXY_HEADERS",
+    default=False,
+)
+
 DEFAULT_HOST = (
     "0.0.0.0"
     if ENVIRONMENT == "production"

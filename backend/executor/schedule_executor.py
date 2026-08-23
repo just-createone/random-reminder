@@ -3,7 +3,6 @@ from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 from backend.config import logger
-from backend.notification.notification_service import NotificationService
 from backend.repository.notification_repository import NotificationRepository
 from backend.repository.user_repository import UserRepository
 from backend.services.schedule_service import ScheduleService
@@ -16,7 +15,6 @@ class ScheduleExecutor:
     def __init__(
         self,
         notification_repository: NotificationRepository | None = None,
-        notification_service: NotificationService | None = None,
         web_push_service: WebPushService | None = None,
         schedule_service: ScheduleService | None = None,
         user_repository: UserRepository | None = None,
@@ -25,7 +23,6 @@ class ScheduleExecutor:
         overdue_grace_minutes: int = 5,
     ) -> None:
         self.notification_repository = notification_repository or NotificationRepository()
-        self.notification_service = notification_service or NotificationService()
         self.web_push_service = web_push_service or WebPushService()
         self.schedule_service = schedule_service or ScheduleService()
         self.user_repository = user_repository or UserRepository()
@@ -71,6 +68,12 @@ class ScheduleExecutor:
             return
         self._last_schedule_refresh_at[user_id] = now
         try:
+            if self.schedule_service.is_today_schedule_cleared(
+                user_id=user_id,
+                time_zone=time_zone,
+                now=now,
+            ):
+                return
             existing_schedules = self.schedule_service.get_today_schedule(
                 user_id=user_id,
                 time_zone=time_zone,
@@ -106,9 +109,16 @@ class ScheduleExecutor:
         current_utc = now or datetime.now(timezone.utc)
         if current_utc.tzinfo is None:
             current_utc = current_utc.replace(tzinfo=timezone.utc)
+        claim_cutoff = (
+            current_utc.astimezone(timezone.utc) - timedelta(minutes=15)
+        ).strftime("%Y-%m-%d %H:%M:%S")
 
         for user in self.user_repository.get_enabled_users():
             local_now = current_utc.astimezone(ZoneInfo(user.time_zone))
+            self.notification_repository.release_expired_claims(
+                cutoff=claim_cutoff,
+                user_id=user.id,
+            )
             self.ensure_today_schedule(user.id, user.time_zone, local_now)
             skipped_count = self.schedule_service.skip_overdue_pending(
                 now=local_now,
@@ -125,6 +135,8 @@ class ScheduleExecutor:
                 user_id=user.id,
             )
             for task in tasks:
+                if not self.notification_repository.claim_pending(task.notification_id):
+                    continue
                 try:
                     channel = self._send_notification(user.id, task.content_snapshot)
                     updated = self.notification_repository.mark_sent(
@@ -159,12 +171,13 @@ class ScheduleExecutor:
             )
             if result.sent:
                 return "web_push"
+            raise RuntimeError("No user notification channel accepted the delivery")
         except (ValueError, RuntimeError) as error:
             logger.info("Web Push unavailable for user_id=%s: %s", user_id, error)
+            raise
         except Exception:
             logger.exception("Unexpected Web Push error for user_id=%s", user_id)
-
-        return self.notification_service.send(title="随机提醒器", message=message)
+            raise
 
     def _run(self) -> None:
         while not self._stop_event.is_set():

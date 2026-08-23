@@ -203,6 +203,7 @@ class NotificationRepository:
                 INNER JOIN daily_schedules
                     ON daily_schedules.id = notifications.schedule_id
                 WHERE notifications.status = 'pending'
+                AND notifications.claimed_at IS NULL
                 AND daily_schedules.status = 'pending'
                 AND daily_schedules.schedule_date = ?
                 AND daily_schedules.user_id IS ?
@@ -230,6 +231,45 @@ class NotificationRepository:
                 for row in rows
             ]
 
+        finally:
+            connection.close()
+
+    def claim_pending(self, notification_id: int) -> bool:
+        connection = get_connection()
+        try:
+            cursor = connection.execute(
+                """
+                UPDATE notifications
+                SET claimed_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                AND status = 'pending'
+                AND claimed_at IS NULL
+                """,
+                (notification_id,),
+            )
+            connection.commit()
+            return cursor.rowcount == 1
+        finally:
+            connection.close()
+
+    def release_expired_claims(self, cutoff: str, user_id: int) -> int:
+        connection = get_connection()
+        try:
+            cursor = connection.execute(
+                """
+                UPDATE notifications
+                SET claimed_at = NULL
+                WHERE status = 'pending'
+                AND claimed_at IS NOT NULL
+                AND claimed_at < ?
+                AND schedule_id IN (
+                    SELECT id FROM daily_schedules WHERE user_id IS ?
+                )
+                """,
+                (cutoff, user_id),
+            )
+            connection.commit()
+            return cursor.rowcount
         finally:
             connection.close()
 

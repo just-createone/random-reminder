@@ -1,3 +1,4 @@
+import hashlib
 import sqlite3
 
 from backend.database.db import get_connection
@@ -142,6 +143,44 @@ class UserRepository:
                 (user_id,),
             )
             connection.commit()
+        finally:
+            connection.close()
+
+    def delete_account(self, user_id: int, email: str) -> None:
+        """Permanently remove one user's data in a single transaction."""
+        connection = get_connection()
+        rate_limit_key = hashlib.sha256(email.encode()).hexdigest()
+
+        try:
+            with connection:
+                cursor = connection.cursor()
+                cursor.execute(
+                    "DELETE FROM push_subscriptions WHERE user_id = ?",
+                    (user_id,),
+                )
+                cursor.execute(
+                    "DELETE FROM notifications WHERE schedule_id IN "
+                    "(SELECT id FROM daily_schedules WHERE user_id = ?)",
+                    (user_id,),
+                )
+                cursor.execute(
+                    "DELETE FROM daily_schedules WHERE user_id = ?",
+                    (user_id,),
+                )
+                cursor.execute(
+                    "DELETE FROM daily_schedule_clearances WHERE user_id = ?",
+                    (user_id,),
+                )
+                cursor.execute("DELETE FROM reminders WHERE user_id = ?", (user_id,))
+                cursor.execute("DELETE FROM settings WHERE user_id = ?", (user_id,))
+                cursor.execute("DELETE FROM user_sessions WHERE user_id = ?", (user_id,))
+                cursor.execute(
+                    "DELETE FROM auth_rate_limits WHERE rate_key = ?",
+                    (rate_limit_key,),
+                )
+                cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
+                if cursor.rowcount != 1:
+                    raise RuntimeError("Account deletion did not remove the user")
         finally:
             connection.close()
 

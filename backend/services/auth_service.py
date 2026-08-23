@@ -120,6 +120,9 @@ class AuthService:
                 self._hash_session_token(session_token)
             )
 
+    def delete_account(self, user: User) -> None:
+        self.user_repository.delete_account(user.id, user.email)
+
     @classmethod
     def _normalize_email(cls, email: str) -> str:
         return email.strip().lower()

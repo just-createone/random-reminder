@@ -1,4 +1,5 @@
 from http.cookies import SimpleCookie
+import hashlib
 from pathlib import Path
 import sqlite3
 
@@ -135,6 +136,7 @@ def test_authentication_routes_are_in_openapi_schema() -> None:
     assert "/api/auth/register" in paths
     assert "/api/auth/login" in paths
     assert "/api/auth/logout" in paths
+    assert "/api/auth/account" in paths
     assert "/api/auth/me" in paths
 
 
@@ -205,3 +207,110 @@ def test_http_sessions_enforce_user_data_isolation(
         assert [item["content"] for item in client_b.get("/api/reminders").json()["data"]] == ["only account B"]
         assert client_a.get("/api/data/export").json()["data"]["settings"]["enabled"] is True
         assert client_b.get("/api/data/export").json()["data"]["settings"]["enabled"] is False
+
+
+def test_login_rate_limit_returns_429(database_path: Path) -> None:
+    with TestClient(app) as client:
+        for _ in range(10):
+            response = client.post(
+                "/api/auth/login",
+                json={"email": "missing@example.com", "password": "password-123"},
+            )
+            assert response.status_code == 401
+        response = client.post(
+            "/api/auth/login",
+            json={"email": "missing@example.com", "password": "password-123"},
+        )
+    assert response.status_code == 429
+
+
+def test_registration_rate_limit_applies_to_the_client_address(database_path: Path) -> None:
+    with TestClient(app) as client:
+        for index in range(5):
+            response = client.post(
+                "/api/auth/register",
+                json={"email": f"user-{index}@example.com", "password": "password-123"},
+            )
+            assert response.status_code == 201
+        response = client.post(
+            "/api/auth/register",
+            json={"email": "blocked@example.com", "password": "password-123"},
+        )
+    assert response.status_code == 429
+
+
+def test_account_deletion_removes_only_the_current_users_data(
+    database_path: Path,
+) -> None:
+    with TestClient(app) as client_a, TestClient(app) as client_b:
+        registered_a = client_a.post(
+            "/api/auth/register",
+            json={"email": "a@example.com", "password": "password-123"},
+        )
+        assert registered_a.status_code == 201
+        user_id = registered_a.json()["data"]["id"]
+        reminder = client_a.post(
+            "/api/reminders",
+            json={"content": "delete me"},
+        )
+        assert reminder.status_code == 201
+        reminder_id = reminder.json()["data"]["id"]
+
+        with sqlite3.connect(database_path) as connection:
+            schedule_id = connection.execute(
+                "INSERT INTO daily_schedules "
+                "(user_id, schedule_date, scheduled_time, reminder_id, content_snapshot) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (user_id, "2026-08-22", "12:00", reminder_id, "delete me"),
+            ).lastrowid
+            connection.execute(
+                "INSERT INTO notifications (schedule_id) VALUES (?)",
+                (schedule_id,),
+            )
+            connection.execute(
+                "INSERT INTO daily_schedule_clearances (user_id, schedule_date) "
+                "VALUES (?, ?)",
+                (user_id, "2026-08-22"),
+            )
+            connection.execute(
+                "INSERT INTO push_subscriptions "
+                "(user_id, endpoint, p256dh, auth) VALUES (?, ?, ?, ?)",
+                (user_id, "https://example.invalid/a", "key", "auth"),
+            )
+            connection.commit()
+
+        registered_b = client_b.post(
+            "/api/auth/register",
+            json={"email": "b@example.com", "password": "password-123"},
+        )
+        assert registered_b.status_code == 201
+
+        deleted = client_a.delete("/api/auth/account")
+
+        assert deleted.status_code == 200
+        assert client_a.get("/api/auth/me").status_code == 401
+        assert client_b.get("/api/auth/me").status_code == 200
+
+    with sqlite3.connect(database_path) as connection:
+        assert connection.execute(
+            "SELECT COUNT(*) FROM users WHERE id = ?", (user_id,)
+        ).fetchone()[0] == 0
+        for table in (
+            "reminders",
+            "settings",
+            "user_sessions",
+            "push_subscriptions",
+            "daily_schedules",
+            "daily_schedule_clearances",
+        ):
+            assert connection.execute(
+                f"SELECT COUNT(*) FROM {table} WHERE user_id = ?", (user_id,)
+            ).fetchone()[0] == 0
+        assert connection.execute(
+            "SELECT COUNT(*) FROM notifications WHERE schedule_id = ?",
+            (schedule_id,),
+        ).fetchone()[0] == 0
+        assert connection.execute(
+            "SELECT COUNT(*) FROM auth_rate_limits WHERE rate_key = ?",
+            (hashlib.sha256(b"a@example.com").hexdigest(),),
+        ).fetchone()[0] == 0

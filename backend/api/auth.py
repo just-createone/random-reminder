@@ -1,18 +1,20 @@
 from dataclasses import asdict
 
-from fastapi import APIRouter, Cookie, HTTPException, Response, status
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel, Field
 
 from backend.config import (
     SESSION_COOKIE_NAME,
     SESSION_COOKIE_SECURE,
     SESSION_DURATION_DAYS,
+    TRUST_PROXY_HEADERS,
 )
 from backend.services.auth_service import (
     AuthenticationError,
     AuthService,
     EmailAlreadyRegisteredError,
 )
+from backend.services.auth_rate_limit_service import AuthRateLimitService
 
 
 router = APIRouter(
@@ -21,6 +23,17 @@ router = APIRouter(
 )
 
 auth_service = AuthService()
+rate_limiter = AuthRateLimitService()
+
+
+def _check_rate_limit(http_request: Request | None, email: str, scope: str, limit: int) -> None:
+    if http_request is None:
+        return
+    forwarded = http_request.headers.get("x-forwarded-for", "") if TRUST_PROXY_HEADERS else ""
+    address = forwarded.split(",", 1)[0].strip() or (http_request.client.host if http_request.client else "unknown")
+    email_key = email.strip().lower()
+    if not rate_limiter.allow(f"{scope}:ip", address, limit) or not rate_limiter.allow(f"{scope}:email", email_key, limit):
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="请求过于频繁，请稍后再试")
 
 
 class CredentialsRequest(BaseModel):
@@ -71,7 +84,9 @@ def require_current_user(
 def register(
     request: CredentialsRequest,
     response: Response,
+    http_request: Request = None,
 ) -> dict:
+    _check_rate_limit(http_request, request.email, "register", 5)
     try:
         user = auth_service.register(
             request.email,
@@ -106,7 +121,9 @@ def register(
 def login(
     request: CredentialsRequest,
     response: Response,
+    http_request: Request = None,
 ) -> dict:
+    _check_rate_limit(http_request, request.email, "login", 10)
     try:
         user = auth_service.login(request.email, request.password)
     except AuthenticationError as error:
@@ -143,6 +160,21 @@ def logout(
         "success": True,
         "data": None,
         "message": "已退出登录",
+    }
+
+
+@router.delete("/account")
+def delete_account(
+    response: Response,
+    current_user=Depends(require_current_user),
+) -> dict:
+    auth_service.delete_account(current_user)
+    _clear_session_cookie(response)
+
+    return {
+        "success": True,
+        "data": None,
+        "message": "账号及其全部数据已永久删除",
     }
 
 
